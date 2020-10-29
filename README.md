@@ -1,7 +1,8 @@
 # dll_vm
 
 ## TODO
-  +[ ] don't parse some data struct.
+  +[ ] test vm application name
+  +[x] don't parse some data struct.
   +[ ] test parsing
   +[ ] write to new dex file
   +[ ] test my dex file by apktool
@@ -27,5 +28,7 @@
   
 
 ## git log
+    [2020-10-30]: 1.parse all data but no testing 
+                    2.TODO: don't parse some data struct
     [2020-10-29]: add test App and vm App
     [2020-10-29]: init master; parse dex file

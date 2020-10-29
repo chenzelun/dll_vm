@@ -17,7 +17,7 @@ class MapListItemType(IntEnum):
     TYPE_METHOD_ID_ITEM = 0x0005
     TYPE_CLASS_DEF_ITEM = 0x0006
     TYPE_MAP_LIST = 0x1000
-    TYPE_TYPE_LIST = 0x1001
+    TYPE_TYPE_LIST_ITEM = 0x1001
     TYPE_ANNOTATION_SET_REF_LIST = 0x1002
     TYPE_ANNOTATION_SET_ITEM = 0x1003
     TYPE_CLASS_DATA_ITEM = 0x2000
@@ -131,7 +131,7 @@ class ReflectHelper:
 
 
 class Pointer:
-    def __init__(self, start: int = 0, step: int = 1):
+    def __init__(self, start: int, step: int = 1):
         assert start >= 0
         assert step >= 0
         self.cur = start
@@ -183,6 +183,29 @@ class Pointer:
         assert offset >= 0
         self.cur += offset
         return self.cur
+
+    @staticmethod
+    def ignore_data(value_type, buf: bytes, pr) -> bytes:
+        start = pr.cur
+        value_type.ignore(buf, pr)
+        end = pr.cur
+        return buf[start:end]
+
+    def aligned(self, aligned_len: int, now_len: int = -1):
+        """
+        change pr:Pointer by aligned_len
+        :param aligned_len: length of aligned, only the power of 2 and the min value is 2
+        :param now_len: dest length (default: pr.cur)
+        :return: None
+        """
+        assert aligned_len >= 2 and (aligned_len & (aligned_len - 1) == 0)
+        if now_len == -1:
+            now_len = self.cur
+        if now_len & (aligned_len - 1) != 0:
+            offset = aligned_len - (now_len & (aligned_len - 1))
+        else:
+            offset = 0
+        self.add(offset)
 
 
 class Leb128:
@@ -284,7 +307,7 @@ class Writeable(metaclass=ABCMeta):
         self.offset = -1
 
     @abstractmethod
-    def parse(self, buf: bytearray, pr: Pointer):
+    def parse(self, buf: bytes, pr: Pointer):
         """ Convert binary to data structure. """
         pass
 
@@ -308,7 +331,7 @@ class MapItem(Writeable):
 
         self.data: Optional[Pool] = None
 
-    def parse(self, buf: bytearray, pr: Pointer):
+    def parse(self, buf: bytes, pr: Pointer):
         map_type, \
         self.unused, \
         self.size, \
@@ -337,7 +360,7 @@ class Pool(Writeable):
         MapListItemType.TYPE_CLASS_DEF_ITEM,
     )
     offset_pool_type = (
-        MapListItemType.TYPE_TYPE_LIST,
+        MapListItemType.TYPE_TYPE_LIST_ITEM,
         MapListItemType.TYPE_ANNOTATION_SET_REF_LIST,
         MapListItemType.TYPE_ANNOTATION_SET_ITEM,
         MapListItemType.TYPE_CLASS_DATA_ITEM,
@@ -356,10 +379,9 @@ class Pool(Writeable):
         self.__map_item = map_item
         self.__val_type = val_type
 
-    def parse(self, buf: bytearray, pr: Pointer):
+    def parse(self, buf: bytes, pr: Pointer):
         for idx in range(self.__map_item.size):
             item: Writeable = self.__val_type().parse(buf, pr)
-            item.offset = pr.cur
             key = idx if self.__map_item.type in self.index_pool_type else item.offset
             self.__map[key] = item
             self.__order.append(key)
@@ -411,7 +433,7 @@ class Header(Writeable):
         self.data_size: int = 0
         self.data_off: int = 0
 
-    def parse(self, buf: bytearray, pr: Pointer):
+    def parse(self, buf: bytes, pr: Pointer):
         assert pr.cur == 0
         self.magic: bytes = buf[pr.cur:pr.cur + 0x08]
         self.checksum: int = unpack_from('<I', buf, pr.cur + 0x08)[0]
@@ -457,7 +479,7 @@ class StringDataItem(Writeable):
         self.data = b''
 
     @Pointer.update_offset
-    def parse(self, buf: bytearray, pr: Pointer):
+    def parse(self, buf: bytes, pr: Pointer):
         self.size = Leb128.read_unsigned_leb128(buf, pr)
         assert self.size
         start = pr.cur
@@ -480,10 +502,10 @@ class StringIdItem(Writeable):
         self.data_offset = -1
         self.data: Optional[StringDataItem] = None
 
-    def parse(self, buf: bytearray, pr: Pointer):
+    def parse(self, buf: bytes, pr: Pointer):
         self.data_offset = unpack_from('<I', buf, pr.get_and_add(len(self)))[0]
         assert self.data_offset
-        self.data = MapList.add_and_update(
+        self.data = MapList.get_and_add(
             MapListItemType.TYPE_STRING_DATA_ITEM,
             self.data_offset, StringDataItem, buf
         )
@@ -505,7 +527,7 @@ class TypeIdItem(Writeable):
         super().__init__()
         self.descriptor_id: int = -1
 
-    def parse(self, buf: bytearray, pr: Pointer):
+    def parse(self, buf: bytes, pr: Pointer):
         self.descriptor_id = unpack_from('<I', buf, pr.get_and_add(len(self)))[0]
         return self
 
@@ -527,7 +549,7 @@ class TypeListItem(Writeable):
         self.list: List[int] = []
 
     @Pointer.update_offset
-    def parse(self, buf: bytearray, pr: Pointer):
+    def parse(self, buf: bytes, pr: Pointer):
         self.size = unpack_from('<I', buf, pr.get_and_add(0x04))[0]
         self.list.extend(unpack_from('<' + str(self.size) + 'H', buf, pr.get_and_add(self.size * 0x02)))
         return self
@@ -548,11 +570,11 @@ class ProtoIdItem(Writeable):
         self.parameters_off: int = -1
         self.parameters: Optional[TypeIdItem] = None
 
-    def parse(self, buf: bytearray, pr: Pointer):
+    def parse(self, buf: bytes, pr: Pointer):
         self.shorty_id, self.return_type_idx, self.parameters_off = unpack_from('<3I', buf, pr.get_and_add(len(self)))
         if self.parameters_off:
-            self.parameters = MapList.add_and_update(
-                MapListItemType.TYPE_TYPE_LIST,
+            self.parameters = MapList.get_and_add(
+                MapListItemType.TYPE_TYPE_LIST_ITEM,
                 self.parameters_off, TypeListItem, buf
             )
 
@@ -576,7 +598,7 @@ class FieldIdItem(Writeable):
         self.type_id: int = -1
         self.name_id: int = -1
 
-    def parse(self, buf: bytearray, pr: Pointer):
+    def parse(self, buf: bytes, pr: Pointer):
         self.class_id, self.type_id, self.name_id = unpack_from('<2HI', buf, pr.get_and_add(len(self)))
         return self
 
@@ -598,7 +620,7 @@ class MethodIdItem(Writeable):
         self.proto_id: int = -1
         self.name_id: int = -1
 
-    def parse(self, buf: bytearray, pr: Pointer):
+    def parse(self, buf: bytes, pr: Pointer):
         self.class_id, self.proto_id, self.name_id = unpack_from('<2HI', buf, pr.get_and_add(len(self)))
         return self
 
@@ -619,8 +641,17 @@ class EncodedArray(Writeable):
         self.size: int = -1
         self.values: List[EncodedValue] = []
 
-    def parse(self, buf: bytearray, pr: Pointer):
-        pass
+    def parse(self, buf: bytes, pr: Pointer):
+        self.size = Leb128.read_unsigned_leb128(buf, pr)
+        for _ in range(self.size):
+            self.values.append(EncodedValue().parse(buf, pr))
+        return self
+
+    @staticmethod
+    def ignore(buf: bytes, pr: Pointer):
+        size = Leb128.read_unsigned_leb128(buf, pr)
+        for _ in range(size):
+            EncodedValue.ignore(buf, pr)
 
     def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
         pass
@@ -637,8 +668,63 @@ class EncodedValue(Writeable):
         self.value_arg: int = -1
         self.data: Optional[EncodedArray, EncodedAnnotation, int] = None
 
-    def parse(self, buf: bytearray, pr: Pointer):
-        pass
+    def parse(self, buf: bytes, pr: Pointer):
+        value = buf[pr.get_and_add(0x01)]
+        self.value_type = EncodedValueType(value & 0x1f)
+        self.value_arg = (value >> 5) & 0x07
+        if self.value_type == EncodedValueType.VALUE_BYTE:
+            self.data = buf[pr.get_and_add(0x01)]
+        elif self.value_type in (EncodedValueType.VALUE_SHORT,
+                                 EncodedValueType.VALUE_CHAR,
+                                 EncodedValueType.VALUE_INT,
+                                 EncodedValueType.VALUE_LONG,
+                                 EncodedValueType.VALUE_FLOAT,
+                                 EncodedValueType.VALUE_DOUBLE,
+                                 EncodedValueType.VALUE_STRING,
+                                 EncodedValueType.VALUE_TYPE,
+                                 EncodedValueType.VALUE_FIELD,
+                                 EncodedValueType.VALUE_METHOD,
+                                 EncodedValueType.VALUE_ENUM):
+            self.data = EncodedValue.read_encode_value_data(buf, pr, self.value_arg + 1)
+        elif self.value_type == EncodedValueType.VALUE_ARRAY:
+            self.data = EncodedArray().parse(buf, pr)
+        elif self.value_type == EncodedValueType.VALUE_ANNOTATION:
+            self.data = EncodedAnnotation().parse(buf, pr)
+        elif self.value_type in (EncodedValueType.VALUE_NULL,
+                                 EncodedValueType.VALUE_BOOLEAN):
+            pass
+        else:
+            raise RuntimeWarning('Unknown type for encoded value ' + hex(self.value_type.value))
+        return self
+
+    @staticmethod
+    def ignore(buf: bytes, pr: Pointer):
+        value = buf[pr.get_and_add(0x01)]
+        value_type = EncodedValueType(value & 0x1f)
+        value_arg = (value >> 5) & 0x07
+        if value_type == EncodedValueType.VALUE_BYTE:
+            pr.add(0x01)
+        elif value_type in (EncodedValueType.VALUE_SHORT,
+                            EncodedValueType.VALUE_CHAR,
+                            EncodedValueType.VALUE_INT,
+                            EncodedValueType.VALUE_LONG,
+                            EncodedValueType.VALUE_FLOAT,
+                            EncodedValueType.VALUE_DOUBLE,
+                            EncodedValueType.VALUE_STRING,
+                            EncodedValueType.VALUE_TYPE,
+                            EncodedValueType.VALUE_FIELD,
+                            EncodedValueType.VALUE_METHOD,
+                            EncodedValueType.VALUE_ENUM):
+            pr.add(value_arg + 0x01)
+        elif value_type == EncodedValueType.VALUE_ARRAY:
+            EncodedArray.ignore(buf, pr)
+        elif value_type == EncodedValueType.VALUE_ANNOTATION:
+            EncodedAnnotation.ignore(buf, pr)
+        elif value_type in (EncodedValueType.VALUE_NULL,
+                            EncodedValueType.VALUE_BOOLEAN):
+            pass
+        else:
+            raise RuntimeWarning('Unknown type for encoded value ' + hex(value_type.value))
 
     def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
         pass
@@ -647,6 +733,22 @@ class EncodedValue(Writeable):
     def __repr__(self):
         pass
 
+    @staticmethod
+    @Pointer.tmp_reset_step(step=1)
+    def read_encode_value_data(buf: bytes, pr: Pointer, size: int) -> int:
+        ret = 0
+        shift = 0
+        for _ in range(size):
+            ret |= buf[pr.cur_and_increase] << shift
+            shift += 8
+        return ret & 0xffffffff_ffffffff
+
+    @staticmethod
+    def write_encode_value_data(buf: bytearray, data: int, size: int):
+        for _ in range(size):
+            buf.append(data & 0xff)
+            data >>= 8
+
 
 class AnnotationElement(Writeable):
     def __init__(self):
@@ -654,8 +756,15 @@ class AnnotationElement(Writeable):
         self.name_idx: int = -1
         self.value: Optional[EncodedValue] = None
 
-    def parse(self, buf: bytearray, pr: Pointer):
-        pass
+    def parse(self, buf: bytes, pr: Pointer):
+        self.name_idx = Leb128.read_unsigned_leb128(buf, pr)
+        self.value = EncodedValue().parse(buf, pr)
+        return self
+
+    @staticmethod
+    def ignore(buf: bytes, pr: Pointer):
+        Leb128.pass_leb128(buf, pr)
+        EncodedValue.ignore(buf, pr)
 
     def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
         pass
@@ -672,8 +781,19 @@ class EncodedAnnotation(Writeable):
         self.size: int = -1
         self.elements: List[AnnotationElement] = []
 
-    def parse(self, buf: bytearray, pr: Pointer):
-        pass
+    def parse(self, buf: bytes, pr: Pointer):
+        self.type_idx = Leb128.read_unsigned_leb128(buf, pr)
+        self.size = Leb128.read_unsigned_leb128(buf, pr)
+        for _ in range(self.size):
+            self.elements.append(AnnotationElement().parse(buf, pr))
+        return self
+
+    @staticmethod
+    def ignore(buf: bytes, pr: Pointer):
+        Leb128.pass_leb128(buf, pr)
+        size = Leb128.read_unsigned_leb128(buf, pr)
+        for _ in range(size):
+            AnnotationElement.ignore(buf, pr)
 
     def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
         pass
@@ -686,12 +806,23 @@ class EncodedAnnotation(Writeable):
 class AnnotationItem(Writeable):
     def __init__(self):
         super().__init__()
-        self.visibility: Visibility = Visibility.VISIBILITY_BUILD
-        self.annotation: Optional[EncodedAnnotation] = None
+        # self.visibility: Visibility = Visibility.VISIBILITY_BUILD
+        # self.annotation: Optional[EncodedAnnotation] = None
+        self.buf: Optional[bytearray] = None
 
     @Pointer.update_offset
-    def parse(self, buf: bytearray, pr: Pointer):
-        pass
+    def parse(self, buf: bytes, pr: Pointer):
+        # visibility = unpack_from('<B', buf, pr.get_and_add(0x01))[0]
+        # self.visibility = Visibility(visibility)
+        # self.annotation = EncodedAnnotation().parse(buf, pr)
+        # return self
+        self.buf = Pointer.ignore_data(AnnotationItem, buf, pr)
+        return self
+
+    @staticmethod
+    def ignore(buf: bytes, pr: Pointer):
+        pr.add(0x01)
+        EncodedAnnotation.ignore(buf, pr)
 
     def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
         pass
@@ -708,8 +839,8 @@ class AnnotationOff(Writeable):
 
         self.annotation: Optional[AnnotationItem] = None
 
-    def parse(self, buf: bytearray, pr: Pointer):
-        pass
+    def parse(self, buf: bytes, pr: Pointer):
+        return self
 
     def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
         pass
@@ -729,8 +860,11 @@ class AnnotationSetItem(Writeable):
         self.entries: List[AnnotationOff] = []
 
     @Pointer.update_offset
-    def parse(self, buf: bytearray, pr: Pointer):
-        pass
+    def parse(self, buf: bytes, pr: Pointer):
+        self.size = unpack_from('<I', buf, pr.get_and_add(0x04))[0]
+        for _ in range(self.size):
+            self.entries.append(AnnotationOff().parse(buf, pr))
+        return self
 
     def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
         pass
@@ -748,8 +882,8 @@ class FieldAnnotation(Writeable):
 
         self.annotations: Optional[AnnotationSetItem] = None
 
-    def parse(self, buf: bytearray, pr: Pointer):
-        pass
+    def parse(self, buf: bytes, pr: Pointer):
+        return self
 
     def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
         pass
@@ -767,8 +901,8 @@ class MethodAnnotation(Writeable):
 
         self.annotations: Optional[AnnotationSetItem] = None
 
-    def parse(self, buf: bytearray, pr: Pointer):
-        pass
+    def parse(self, buf: bytes, pr: Pointer):
+        return self
 
     def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
         pass
@@ -785,7 +919,7 @@ class AnnotationSetRef(Writeable):
 
         self.annotations: Optional[AnnotationSetItem] = None
 
-    def parse(self, buf: bytearray, pr: Pointer):
+    def parse(self, buf: bytes, pr: Pointer):
         pass
 
     def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
@@ -803,7 +937,7 @@ class AnnotationSetRefListItem(Writeable):
         self.list: List[AnnotationSetRef] = []
 
     @Pointer.update_offset
-    def parse(self, buf: bytearray, pr: Pointer):
+    def parse(self, buf: bytes, pr: Pointer):
         pass
 
     def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
@@ -822,7 +956,7 @@ class ParameterAnnotation(Writeable):
 
         self.annotations: Optional[AnnotationSetRefListItem] = None
 
-    def parse(self, buf: bytearray, pr: Pointer):
+    def parse(self, buf: bytes, pr: Pointer):
         pass
 
     def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
@@ -847,7 +981,7 @@ class AnnotationsDirectoryItem(Writeable):
         self.class_annotations: Optional[AnnotationSetItem] = None
 
     @Pointer.update_offset
-    def parse(self, buf: bytearray, pr: Pointer):
+    def parse(self, buf: bytes, pr: Pointer):
         pass
 
     def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
@@ -866,8 +1000,15 @@ class TryBlock(Writeable):
         self.handler_off: int = -1
 
     @Pointer.update_offset
-    def parse(self, buf: bytearray, pr: Pointer):
-        pass
+    def parse(self, buf: bytes, pr: Pointer):
+        self.start_addr, \
+        self.insns_count, \
+        self.handler_off = unpack_from('<I2H', buf, pr.get_and_add(len(self)))
+        return self
+
+    @staticmethod
+    def ignore(pr: Pointer):
+        pr.add(0x08)
 
     def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
         pass
@@ -876,6 +1017,9 @@ class TryBlock(Writeable):
     def __repr__(self):
         pass
 
+    def __len__(self):
+        return 0x08
+
 
 class EncodedTypeAddrPair(Writeable):
     def __init__(self):
@@ -883,8 +1027,14 @@ class EncodedTypeAddrPair(Writeable):
         self.type_idx: int = -1
         self.addr: int = -1
 
-    def parse(self, buf: bytearray, pr: Pointer):
-        pass
+    def parse(self, buf: bytes, pr: Pointer):
+        self.type_idx = Leb128.read_unsigned_leb128(buf, pr)
+        self.addr = Leb128.read_unsigned_leb128(buf, pr)
+        return self
+
+    @staticmethod
+    def ignore(buf: bytes, pr: Pointer):
+        Leb128.pass_leb128(buf, pr, 2)
 
     def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
         pass
@@ -901,8 +1051,21 @@ class EncodedCatchHandler(Writeable):
         self.handlers: List[EncodedTypeAddrPair] = []
         self.catch_all_addr: int = -1
 
-    def parse(self, buf: bytearray, pr: Pointer):
-        pass
+    def parse(self, buf: bytes, pr: Pointer):
+        self.size = Leb128.read_signed_leb128(buf, pr)
+        for _ in range(abs(self.size)):
+            self.handlers.append(EncodedTypeAddrPair().parse(buf, pr))
+        if self.size <= 0:
+            self.catch_all_addr = Leb128.read_unsigned_leb128(buf, pr)
+        return self
+
+    @staticmethod
+    def ignore(buf: bytes, pr: Pointer):
+        size = Leb128.read_signed_leb128(buf, pr)
+        for _ in range(abs(size)):
+            EncodedTypeAddrPair.ignore(buf, pr)
+        if size <= 0:
+            Leb128.pass_leb128(buf, pr)
 
     def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
         pass
@@ -918,8 +1081,17 @@ class EncodedCatchHandlerList(Writeable):
         self.size: int = -1
         self.list: List[EncodedCatchHandler] = []
 
-    def parse(self, buf: bytearray, pr: Pointer):
-        pass
+    def parse(self, buf: bytes, pr: Pointer):
+        self.size = Leb128.read_unsigned_leb128(buf, pr)
+        for _ in range(self.size):
+            self.list.append(EncodedCatchHandler().parse(buf, pr))
+        return self
+
+    @staticmethod
+    def ignore(buf: bytes, pr: Pointer):
+        size = Leb128.read_unsigned_leb128(buf, pr)
+        for _ in range(size):
+            EncodedCatchHandler.ignore(buf, pr)
 
     def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
         pass
@@ -941,8 +1113,59 @@ class DebugOpcode(Writeable):
         self.sig_idx: int = -1
         self.special_value = -1
 
-    def parse(self, buf: bytearray, pr: Pointer):
-        pass
+    def parse(self, buf: bytes, pr: Pointer):
+        opcode: int = buf[pr.get_and_add(0x01)]
+        self.opcode = DebugInfoOpCodes(
+            opcode if opcode < DebugInfoOpCodes.DBG_FIRST_SPECIAL.value else DebugInfoOpCodes.DBG_FIRST_SPECIAL)
+
+        if self.opcode == DebugInfoOpCodes.DBG_FIRST_SPECIAL:
+            self.special_value = opcode
+        elif self.opcode in (DebugInfoOpCodes.DBG_END_SEQUENCE,
+                             DebugInfoOpCodes.DBG_SET_PROLOGUE_END,
+                             DebugInfoOpCodes.DBG_SET_EPILOGUE_BEGIN):
+            pass
+        elif self.opcode == DebugInfoOpCodes.DBG_ADVANCE_PC:
+            self.addr_diff = Leb128.read_unsigned_leb128(buf, pr)
+        elif self.opcode == DebugInfoOpCodes.DBG_ADVANCE_LINE:
+            self.line_diff = Leb128.read_signed_leb128(buf, pr)
+        elif self.opcode == DebugInfoOpCodes.DBG_START_LOCAL:
+            self.register_num = Leb128.read_unsigned_leb128(buf, pr)
+            self.name_idx = Leb128.read_unsigned_leb128p1(buf, pr)
+            self.type_idx = Leb128.read_unsigned_leb128p1(buf, pr)
+        elif self.opcode == DebugInfoOpCodes.DBG_START_LOCAL_EXTENDED:
+            self.register_num = Leb128.read_unsigned_leb128(buf, pr)
+            self.name_idx = Leb128.read_unsigned_leb128p1(buf, pr)
+            self.type_idx = Leb128.read_unsigned_leb128p1(buf, pr)
+            self.sig_idx = Leb128.read_unsigned_leb128p1(buf, pr)
+        elif self.opcode in (DebugInfoOpCodes.DBG_END_LOCAL, DebugInfoOpCodes.DBG_RESTART_LOCAL):
+            self.register_num = Leb128.read_unsigned_leb128(buf, pr)
+        elif self.opcode == DebugInfoOpCodes.DBG_SET_FILE:
+            self.name_idx = Leb128.read_unsigned_leb128p1(buf, pr)
+        else:
+            raise RuntimeWarning('error debug info type.')
+
+        return self
+
+    @staticmethod
+    def ignore(buf: bytes, pr: Pointer):
+        opcode: int = buf[pr.get_and_add(0x01)]
+        if opcode in (DebugInfoOpCodes.DBG_END_SEQUENCE.value,
+                      DebugInfoOpCodes.DBG_SET_PROLOGUE_END.value,
+                      DebugInfoOpCodes.DBG_SET_EPILOGUE_BEGIN.value) \
+                or opcode >= DebugInfoOpCodes.DBG_FIRST_SPECIAL.value:
+            pass
+        elif opcode in (DebugInfoOpCodes.DBG_ADVANCE_PC.value,
+                        DebugInfoOpCodes.DBG_ADVANCE_LINE.value,
+                        DebugInfoOpCodes.DBG_END_LOCAL.value,
+                        DebugInfoOpCodes.DBG_RESTART_LOCAL.value,
+                        DebugInfoOpCodes.DBG_SET_FILE.value):
+            Leb128.pass_leb128(buf, pr)
+        elif opcode == DebugInfoOpCodes.DBG_START_LOCAL.value:
+            Leb128.pass_leb128(buf, pr, 3)
+        elif opcode == DebugInfoOpCodes.DBG_START_LOCAL_EXTENDED.value:
+            Leb128.pass_leb128(buf, pr, 4)
+        else:
+            raise RuntimeWarning('error debug info type.')
 
     def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
         pass
@@ -955,14 +1178,35 @@ class DebugOpcode(Writeable):
 class DebugInfoItem(Writeable):
     def __init__(self):
         super().__init__()
-        self.line_start: int = -1
-        self.parameters_size: int = -1
-        self.parameter_names: List[int] = []
-        self.opcodes: List[DebugOpcode] = []
+        # self.line_start: int = -1
+        # self.parameters_size: int = -1
+        # self.parameter_names: List[int] = []
+        # self.opcodes: List[DebugOpcode] = []
+        # self.opcodes: List[bytearray] = []
+        self.buf: Optional[bytearray] = None
 
     @Pointer.update_offset
-    def parse(self, buf: bytearray, pr: Pointer):
-        pass
+    def parse(self, buf: bytes, pr: Pointer):
+        # self.line_start = Leb128.read_unsigned_leb128(buf, pr)
+        # self.parameters_size = Leb128.read_unsigned_leb128(buf, pr)
+        # for _ in range(self.parameters_size):
+        #     self.parameter_names.append(Leb128.read_unsigned_leb128p1(buf, pr))
+        # while True:
+        #     self.opcodes.append(DebugOpcode().parse(buf, pr))
+        #     if self.opcodes[-1].opcode == DebugInfoOpCodes.DBG_END_SEQUENCE:
+        #         break
+        # return self
+        self.buf = Pointer.ignore_data(DebugInfoItem, buf, pr)
+        return self
+
+    @staticmethod
+    def ignore(buf: bytes, pr: Pointer):
+        Leb128.pass_leb128(buf, pr)
+        parameters_size = Leb128.read_unsigned_leb128(buf, pr)
+        Leb128.pass_leb128(buf, pr, parameters_size)
+        while buf[pr.cur] != DebugInfoOpCodes.DBG_END_SEQUENCE.value:
+            DebugOpcode.ignore(buf, pr)
+        DebugOpcode.ignore(buf, pr)  # DebugInfoOpCodes.DBG_END_SEQUENCE
 
     def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
         pass
@@ -982,14 +1226,36 @@ class CodeItem(Writeable):
         self.debug_info_off: int = -1
         self.insns_size: int = -1
         self.insns: bytes = b''
-        self.tries: List[TryBlock] = []
-        self.handlers: Optional[EncodedCatchHandlerList] = None
+        # self.tries: List[TryBlock] = []
+        # self.handlers: Optional[EncodedCatchHandlerList] = None
+        self.try_buf: Optional[bytearray] = None
 
         self.debug_info: Optional[DebugInfoItem] = None
 
     @Pointer.update_offset
-    def parse(self, buf: bytearray, pr: Pointer):
-        pass
+    def parse(self, buf: bytes, pr: Pointer):
+        self.registers_size, \
+        self.ins_size, \
+        self.outs_size, \
+        self.tries_size, \
+        self.debug_info_off, \
+        self.insns_size = unpack_from('<4H2I', buf, pr.get_and_add(0x10))
+        self.insns = buf[pr.get_and_add(0x02 * self.insns_size):pr.cur]
+        if self.insns_size > 0:
+            buf_start = pr.cur
+            pr.aligned(0x04, 0x02 * self.insns_size)
+            for _ in range(self.tries_size):
+                TryBlock.ignore(pr)  # used parameter: buf
+            EncodedCatchHandlerList.ignore(buf, pr)
+            buf_end = pr.cur
+            self.try_buf = buf[buf_start:buf_end]
+
+        if self.debug_info_off:
+            self.debug_info = MapList.get_and_add(
+                MapListItemType.TYPE_DEBUG_INFO_ITEM,
+                self.debug_info_off, DebugInfoItem, buf
+            )
+        return self
 
     def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
         pass
@@ -1009,8 +1275,16 @@ class EncodedMethod(Writeable):
         self.method_idx: int = -1
         self.code: Optional[CodeItem] = None
 
-    def parse(self, buf: bytearray, pr: Pointer):
-        pass
+    def parse(self, buf: bytes, pr: Pointer):
+        self.method_idx_diff = Leb128.read_unsigned_leb128(buf, pr)
+        self.access_flags = Leb128.read_unsigned_leb128(buf, pr)
+        self.code_off = Leb128.read_unsigned_leb128(buf, pr)
+        if self.code_off:
+            self.code = MapList.get_and_add(
+                MapListItemType.TYPE_CODE_ITEM,
+                self.code_off, CodeItem, buf
+            )
+        return self
 
     def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
         pass
@@ -1028,8 +1302,10 @@ class EncodedField(Writeable):
 
         self.field_idx: int = -1
 
-    def parse(self, buf: bytearray, pr: Pointer):
-        pass
+    def parse(self, buf: bytes, pr: Pointer):
+        self.field_idx_diff = Leb128.read_unsigned_leb128(buf, pr)
+        self.access_flags = Leb128.read_unsigned_leb128(buf, pr)
+        return self
 
     def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
         pass
@@ -1052,8 +1328,44 @@ class ClassDataItem(Writeable):
         self.virtual_methods: List[EncodedMethod] = []
 
     @Pointer.update_offset
-    def parse(self, buf: bytearray, pr: Pointer):
-        pass
+    def parse(self, buf: bytes, pr: Pointer):
+        self.static_fields_size = Leb128.read_unsigned_leb128(buf, pr)
+        self.instance_fields_size = Leb128.read_unsigned_leb128(buf, pr)
+        self.direct_methods_size = Leb128.read_unsigned_leb128(buf, pr)
+        self.virtual_methods_size = Leb128.read_unsigned_leb128(buf, pr)
+
+        for _ in range(self.static_fields_size):
+            self.static_fields.append(EncodedField().parse(buf, pr))
+        for _ in range(self.instance_fields_size):
+            self.instance_fields.append(EncodedField().parse(buf, pr))
+        for _ in range(self.direct_methods_size):
+            self.direct_methods.append(EncodedMethod().parse(buf, pr))
+        for _ in range(self.virtual_methods_size):
+            self.virtual_methods.append(EncodedMethod().parse(buf, pr))
+
+        self.update_idx()
+        return self
+
+    def update_idx(self):
+        index = 0
+        for f in self.static_fields:
+            index += f.field_idx_diff
+            f.field_idx = index
+
+        index = 0
+        for f in self.instance_fields:
+            index += f.field_idx_diff
+            f.field_idx = index
+
+        index = 0
+        for f in self.direct_methods:
+            index += f.method_idx_diff
+            f.field_idx = index
+
+        index = 0
+        for f in self.virtual_methods:
+            index += f.method_idx_diff
+            f.field_idx = index
 
     def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
         pass
@@ -1066,11 +1378,19 @@ class ClassDataItem(Writeable):
 class EncodedArrayItem(Writeable):
     def __init__(self):
         super().__init__()
-        self.encoded_array: Optional[EncodedArray] = None
+        # self.encoded_array: Optional[EncodedArray] = None
+        self.buf: Optional[bytearray] = None
 
     @Pointer.update_offset
-    def parse(self, buf: bytearray, pr: Pointer):
-        pass
+    def parse(self, buf: bytes, pr: Pointer):
+        # self.encoded_array = EncodedArray().parse(buf, pr)
+        # return self
+        self.buf = Pointer.ignore_data(EncodedArrayItem, buf, pr)
+        return self
+
+    @staticmethod
+    def ignore(buf: bytes, pr: Pointer):
+        EncodedArray.ignore(buf, pr)
 
     def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
         pass
@@ -1098,8 +1418,35 @@ class ClassDefItem(Writeable):
         self.static_values: Optional[EncodedArrayItem] = None
 
     @Pointer.update_offset
-    def parse(self, buf: bytearray, pr: Pointer):
-        pass
+    def parse(self, buf: bytes, pr: Pointer):
+        self.class_id, \
+        self.access_flag, \
+        self.superclass_idx, \
+        self.interfaces_off, \
+        self.source_file_idx, \
+        self.annotations_off, \
+        self.class_data_off, \
+        self.static_values_off = unpack_from('<8I', buf, pr.get_and_add(len(self)))
+        if self.interfaces_off:
+            self.interfaces = MapList.get_and_add(
+                MapListItemType.TYPE_TYPE_LIST_ITEM,
+                self.interfaces_off, TypeListItem, buf
+            )
+        if self.annotations_off:
+            self.annotations = MapList.get_and_add(
+                MapListItemType.TYPE_ANNOTATIONS_DIRECTORY_ITEM,
+                self.annotations_off, AnnotationsDirectoryItem, buf
+            )
+        if self.class_data_off:
+            self.class_data = MapList.get_and_add(
+                MapListItemType.TYPE_CLASS_DATA_ITEM,
+                self.class_data_off, ClassDataItem, buf
+            )
+        if self.static_values_off:
+            self.static_values = MapList.get_and_add(
+                MapListItemType.TYPE_ENCODED_ARRAY_ITEM,
+                self.static_values_off, EncodedArrayItem, buf
+            )
 
     def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
         pass
@@ -1107,6 +1454,9 @@ class ClassDefItem(Writeable):
     @Debugger.print_all_fields
     def __repr__(self):
         pass
+
+    def __len__(self):
+        return 0x20
 
 
 class MapList(Writeable):
@@ -1124,7 +1474,7 @@ class MapList(Writeable):
         self.map: Dict[MapListItemType, MapItem] = {}
 
     @Pointer.update_offset
-    def parse(self, buf: bytearray, pr: Pointer):
+    def parse(self, buf: bytes, pr: Pointer):
         self.size = unpack_from('<I', buf, pr.get_and_add(0x04))[0]
         for _ in range(self.size):
             item = MapItem().parse(buf, pr)
@@ -1137,7 +1487,7 @@ class MapList(Writeable):
         pass
 
     @staticmethod
-    def add_and_update(pool_type: MapListItemType, key: int, value_type: type, buf: bytearray):
+    def get_and_add(pool_type: MapListItemType, key: int, value_type: type, buf: bytes):
         data = MapList.instance().map[pool_type].data
         assert data
         if key in data:
@@ -1161,7 +1511,7 @@ class MapList(Writeable):
         self.__init_data_pool(MapListItemType.TYPE_STRING_ID_ITEM, StringIdItem)
         self.__init_data_pool(MapListItemType.TYPE_TYPE_ID_ITEM, TypeIdItem)
         self.__init_data_pool(MapListItemType.TYPE_STRING_DATA_ITEM, StringDataItem)
-        self.__init_data_pool(MapListItemType.TYPE_TYPE_LIST, TypeListItem)
+        self.__init_data_pool(MapListItemType.TYPE_TYPE_LIST_ITEM, TypeListItem)
         self.__init_data_pool(MapListItemType.TYPE_PROTO_ID_ITEM, ProtoIdItem)
         self.__init_data_pool(MapListItemType.TYPE_FIELD_ID_ITEM, FieldIdItem)
         self.__init_data_pool(MapListItemType.TYPE_METHOD_ID_ITEM, MethodIdItem)
@@ -1175,3 +1525,40 @@ class MapList(Writeable):
         self.__init_data_pool(MapListItemType.TYPE_DEBUG_INFO_ITEM, DebugInfoItem)
         self.__init_data_pool(MapListItemType.TYPE_ANNOTATIONS_DIRECTORY_ITEM, AnnotationsDirectoryItem)
         self.__init_data_pool(MapListItemType.TYPE_ENCODED_ARRAY_ITEM, EncodedArrayItem)
+
+
+class DexFile:
+    def __init__(self):
+        super().__init__()
+        self.header: Optional[Header] = None
+        self.map_list: Optional[MapList] = None
+
+    def parse(self, buf: bytes):
+        self.header = Header().parse(buf, Pointer(0))
+        self.map_list = MapList().parse(buf, Pointer(self.header.map_off))
+
+        self.__parse_pool(MapListItemType.TYPE_STRING_ID_ITEM, buf)
+        self.__parse_pool(MapListItemType.TYPE_TYPE_ID_ITEM, buf)
+        self.__parse_pool(MapListItemType.TYPE_PROTO_ID_ITEM, buf)
+        self.__parse_pool(MapListItemType.TYPE_FIELD_ID_ITEM, buf)
+        self.__parse_pool(MapListItemType.TYPE_METHOD_ID_ITEM, buf)
+        self.__parse_pool(MapListItemType.TYPE_CLASS_DEF_ITEM, buf)
+        return self
+
+    def __parse_pool(self, item_type: MapListItemType, buf: bytes):
+        assert item_type in Pool.index_pool_type
+        map_item = self.map_list.map[item_type]
+        map_item.data.parse(buf, Pointer(map_item.data_offset))
+
+    @staticmethod
+    def parse_file(path: str):
+        with open(path, 'rb') as reader:
+            buf = reader.read()
+        return DexFile().parse(buf)
+
+    def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
+        pass
+
+    @Debugger.print_all_fields
+    def __repr__(self):
+        pass

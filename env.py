@@ -6,6 +6,8 @@ LIB_ROOT = ROOT_PATH + os.path.sep + r'lib'
 LOG_ROOT = ROOT_PATH + os.path.sep + r'log'
 TMP_ROOT = ROOT_PATH + os.path.sep + r'tmp'
 
+TEST_DEX_PATH = r'/Users/chenzelun/PycharmProjects/dll_vm/test/TestApp/app/release/app-release/classes.dex'
+
 
 # config log
 def init_logging():
