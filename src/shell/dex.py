@@ -4,6 +4,7 @@ from functools import wraps
 from struct import unpack_from
 from typing import Optional, List, Dict
 
+import env
 from src.shell.utils import Debugger
 
 
@@ -481,7 +482,6 @@ class StringDataItem(Writeable):
     @Pointer.update_offset
     def parse(self, buf: bytes, pr: Pointer):
         self.size = Leb128.read_unsigned_leb128(buf, pr)
-        assert self.size
         start = pr.cur
         while buf[pr.get_and_add(1)]:
             pass
@@ -840,6 +840,12 @@ class AnnotationOff(Writeable):
         self.annotation: Optional[AnnotationItem] = None
 
     def parse(self, buf: bytes, pr: Pointer):
+        self.annotation_off = unpack_from('<I', buf, pr.get_and_add(len(self)))[0]
+        if self.annotation_off:
+            self.annotation = MapList.get_and_add(
+                MapListItemType.TYPE_ANNOTATION_ITEM,
+                self.annotation_off, AnnotationItem, buf
+            )
         return self
 
     def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
@@ -883,6 +889,12 @@ class FieldAnnotation(Writeable):
         self.annotations: Optional[AnnotationSetItem] = None
 
     def parse(self, buf: bytes, pr: Pointer):
+        self.field_idx, self.annotations_off = unpack_from('<2I', buf, pr.get_and_add(len(self)))
+        if self.annotations_off:
+            self.annotations = MapList.get_and_add(
+                MapListItemType.TYPE_ANNOTATION_SET_ITEM,
+                self.annotations_off, AnnotationSetItem, buf
+            )
         return self
 
     def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
@@ -891,6 +903,9 @@ class FieldAnnotation(Writeable):
     @Debugger.print_all_fields
     def __repr__(self):
         pass
+
+    def __len__(self):
+        return 0x08
 
 
 class MethodAnnotation(Writeable):
@@ -902,6 +917,12 @@ class MethodAnnotation(Writeable):
         self.annotations: Optional[AnnotationSetItem] = None
 
     def parse(self, buf: bytes, pr: Pointer):
+        self.method_idx, self.annotations_off = unpack_from('<2I', buf, pr.get_and_add(len(self)))
+        if self.annotations_off:
+            self.annotations = MapList.get_and_add(
+                MapListItemType.TYPE_ANNOTATION_SET_ITEM,
+                self.annotations_off, AnnotationSetItem, buf
+            )
         return self
 
     def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
@@ -910,6 +931,9 @@ class MethodAnnotation(Writeable):
     @Debugger.print_all_fields
     def __repr__(self):
         pass
+
+    def __len__(self):
+        return 0x08
 
 
 class AnnotationSetRef(Writeable):
@@ -920,7 +944,13 @@ class AnnotationSetRef(Writeable):
         self.annotations: Optional[AnnotationSetItem] = None
 
     def parse(self, buf: bytes, pr: Pointer):
-        pass
+        self.annotations_off = unpack_from('<I', buf, pr.get_and_add(len(self)))[0]
+        if self.annotations_off:
+            self.annotations = MapList.get_and_add(
+                MapListItemType.TYPE_ANNOTATION_SET_ITEM,
+                self.annotations_off, AnnotationSetItem, buf
+            )
+        return self
 
     def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
         pass
@@ -928,6 +958,9 @@ class AnnotationSetRef(Writeable):
     @Debugger.print_all_fields
     def __repr__(self):
         pass
+
+    def __len__(self):
+        return 0x04
 
 
 class AnnotationSetRefListItem(Writeable):
@@ -938,7 +971,10 @@ class AnnotationSetRefListItem(Writeable):
 
     @Pointer.update_offset
     def parse(self, buf: bytes, pr: Pointer):
-        pass
+        self.size = unpack_from('<I', buf, pr.get_and_add(0x04))[0]
+        for _ in range(self.size):
+            self.list.append(AnnotationSetRef().parse(buf, pr))
+        return self
 
     def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
         pass
@@ -957,7 +993,13 @@ class ParameterAnnotation(Writeable):
         self.annotations: Optional[AnnotationSetRefListItem] = None
 
     def parse(self, buf: bytes, pr: Pointer):
-        pass
+        self.method_idx, self.annotations_off = unpack_from('<2I', buf, pr.get_and_add(len(self)))
+        if self.annotations_off:
+            self.annotations = MapList.get_and_add(
+                MapListItemType.TYPE_ANNOTATION_SET_REF_LIST,
+                self.annotations_off, AnnotationSetRefListItem, buf
+            )
+        return self
 
     def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
         pass
@@ -965,6 +1007,9 @@ class ParameterAnnotation(Writeable):
     @Debugger.print_all_fields
     def __repr__(self):
         pass
+
+    def __len__(self):
+        return 0x08
 
 
 class AnnotationsDirectoryItem(Writeable):
@@ -982,7 +1027,22 @@ class AnnotationsDirectoryItem(Writeable):
 
     @Pointer.update_offset
     def parse(self, buf: bytes, pr: Pointer):
-        pass
+        self.class_annotations_off, \
+        self.fields_size, \
+        self.methods_size, \
+        self.parameters_size = unpack_from('<4I', buf, pr.get_and_add(0x10))
+        for _ in range(self.fields_size):
+            self.field_annotations.append(FieldAnnotation().parse(buf, pr))
+        for _ in range(self.methods_size):
+            self.method_annotations.append(MethodAnnotation().parse(buf, pr))
+        for _ in range(self.parameters_size):
+            self.parameter_annotations.append(ParameterAnnotation().parse(buf, pr))
+        if self.class_annotations_off:
+            self.class_annotations = MapList.get_and_add(
+                MapListItemType.TYPE_ANNOTATION_SET_ITEM,
+                self.class_annotations_off, AnnotationSetItem, buf
+            )
+        return self
 
     def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
         pass
@@ -1241,7 +1301,7 @@ class CodeItem(Writeable):
         self.debug_info_off, \
         self.insns_size = unpack_from('<4H2I', buf, pr.get_and_add(0x10))
         self.insns = buf[pr.get_and_add(0x02 * self.insns_size):pr.cur]
-        if self.insns_size > 0:
+        if self.tries_size > 0:
             buf_start = pr.cur
             pr.aligned(0x04, 0x02 * self.insns_size)
             for _ in range(self.tries_size):
@@ -1448,6 +1508,8 @@ class ClassDefItem(Writeable):
                 self.static_values_off, EncodedArrayItem, buf
             )
 
+        return self
+
     def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
         pass
 
@@ -1472,6 +1534,7 @@ class MapList(Writeable):
         super().__init__()
         self.size = -1
         self.map: Dict[MapListItemType, MapItem] = {}
+        MapList.__instance = self
 
     @Pointer.update_offset
     def parse(self, buf: bytes, pr: Pointer):
@@ -1559,6 +1622,14 @@ class DexFile:
     def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
         pass
 
+    def compute_data_off(self):
+        pass
+
     @Debugger.print_all_fields
     def __repr__(self):
         pass
+
+
+if __name__ == '__main__':
+    dex = DexFile.parse_file(env.TEST_DEX_PATH)
+    print("ok")

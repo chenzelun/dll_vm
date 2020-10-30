@@ -1,30 +1,30 @@
 # dll_vm
 
 ## TODO
-  +[ ] test vm application name
-  +[x] don't parse some data struct.
-  +[ ] test parsing
-  +[ ] write to new dex file
-  +[ ] test my dex file by apktool
-  +[ ] change AndroidManifest.xml
-  +[ ] design a new format of data file
-  +[ ] main shell step
-  +[ ] main vm code about setup system
-  +[ ] test repackaged App
-  +[ ] change java method to native method
-  +[ ] add vm interpreter
-  +[ ] test base vmp's App
-  +[ ] randomized bytecode and update interpreter
-  +[ ] relocate "relocate" and confusion
-  +[ ] add code cache
-  +[ ] hide stack
-  +[ ] cancel JNI call
-  +[ ] delete debug info in dex file
-  +[ ] test App's profile
+  + [ ] test vm application name
+  + [x] don't parse some data struct.
+  + [x] test parsing
+  + [ ] write to new dex file
+  + [ ] test my dex file by apktool
+  + [ ] change AndroidManifest.xml
+  + [ ] design a new format of data file
+  + [ ] main shell step
+  + [ ] main vm code about setup system
+  + [ ] test repackaged App
+  + [ ] change java method to native method
+  + [ ] add vm interpreter
+  + [ ] test base vmp's App
+  + [ ] randomized bytecode and update interpreter
+  + [ ] relocate "relocate" and confusion
+  + [ ] add code cache
+  + [ ] hide stack
+  + [ ] cancel JNI call
+  + [ ] delete debug info in dex file
+  + [ ] test App's profile
   
   
   Additional:
-  +[ ] zip my data file
+  + [ ] zip my data file
   
 
 ## git log
