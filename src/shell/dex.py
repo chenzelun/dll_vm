@@ -1,7 +1,7 @@
 from abc import ABCMeta, abstractmethod
 from enum import IntEnum, unique
 from functools import wraps
-from struct import unpack_from
+from struct import unpack_from, pack
 from typing import Optional, List, Dict
 
 import env
@@ -156,6 +156,21 @@ class Pointer:
             return wrapper
 
         return func_wrapper
+
+    @staticmethod
+    def aligned_4_with_zero(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            pr: Pointer = ReflectHelper.get_first_var_by_type(Pointer, *args, **kwargs)
+            buf: bytearray = ReflectHelper.get_first_var_by_type(bytearray, *args, **kwargs)
+            old_len = pr.cur
+            pr.aligned(0x04)
+            while old_len < pr.cur:
+                buf.append(0)
+
+            return func(*args, **kwargs)
+
+        return wrapper
 
     @staticmethod
     def update_offset(func):
@@ -313,7 +328,7 @@ class Writeable(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
+    def to_bytes(self, buf: bytearray, pr: Pointer):
         """ Convert data structure to binary. """
         pass
 
@@ -340,7 +355,7 @@ class MapItem(Writeable):
         self.type = MapListItemType(map_type)
         return self
 
-    def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
+    def to_bytes(self, buf: bytearray, pr: Pointer):
         pass
 
     @Debugger.print_all_fields
@@ -399,12 +414,18 @@ class Pool(Writeable):
     def __contains__(self, key: int):
         return key in self.__map
 
-    def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
-        pass
+    @Pointer.aligned_4_with_zero
+    @Pointer.update_offset
+    def to_bytes(self, buf: bytearray, pr: Pointer):
+        for key in self.__order:
+            self.__map[key].to_bytes(buf, pr)
 
     @Debugger.print_all_fields
     def __repr__(self):
         pass
+
+    def __len__(self):
+        return len(self.__map)
 
 
 class Header(Writeable):
@@ -462,8 +483,31 @@ class Header(Writeable):
         pr.get_and_add(len(self))
         return self
 
-    def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
-        pass
+    def to_bytes(self, buf: bytearray, pr: Pointer):
+        buf.extend(self.magic)
+        buf.extend(pack('<I', self.checksum))
+        buf.extend(self.signature)
+        buf.extend(pack('<20I',
+                        self.file_size,
+                        self.header_size,
+                        self.endian_tag,
+                        self.link_size,
+                        self.link_off,
+                        self.map_off,
+                        self.string_ids_size,
+                        self.string_ids_off,
+                        self.type_ids_size,
+                        self.type_ids_off,
+                        self.proto_ids_size,
+                        self.proto_ids_off,
+                        self.field_ids_size,
+                        self.field_ids_off,
+                        self.method_ids_size,
+                        self.method_ids_off,
+                        self.class_defs_size,
+                        self.class_defs_off,
+                        self.data_size,
+                        self.data_off))
 
     @Debugger.print_all_fields
     def __repr__(self):
@@ -488,7 +532,8 @@ class StringDataItem(Writeable):
         self.data = buf[start:pr.cur]
         return self
 
-    def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
+    @Pointer.update_offset
+    def to_bytes(self, buf: bytearray, pr: Pointer):
         pass
 
     @Debugger.print_all_fields
@@ -511,7 +556,7 @@ class StringIdItem(Writeable):
         )
         return self
 
-    def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
+    def to_bytes(self, buf: bytearray, pr: Pointer):
         pass
 
     @Debugger.print_all_fields
@@ -531,7 +576,7 @@ class TypeIdItem(Writeable):
         self.descriptor_id = unpack_from('<I', buf, pr.get_and_add(len(self)))[0]
         return self
 
-    def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
+    def to_bytes(self, buf: bytearray, pr: Pointer):
         pass
 
     @Debugger.print_all_fields
@@ -554,7 +599,9 @@ class TypeListItem(Writeable):
         self.list.extend(unpack_from('<' + str(self.size) + 'H', buf, pr.get_and_add(self.size * 0x02)))
         return self
 
-    def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
+    @Pointer.aligned_4_with_zero
+    @Pointer.update_offset
+    def to_bytes(self, buf: bytearray, pr: Pointer):
         pass
 
     @Debugger.print_all_fields
@@ -580,7 +627,7 @@ class ProtoIdItem(Writeable):
 
         return self
 
-    def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
+    def to_bytes(self, buf: bytearray, pr: Pointer):
         pass
 
     @Debugger.print_all_fields
@@ -602,7 +649,7 @@ class FieldIdItem(Writeable):
         self.class_id, self.type_id, self.name_id = unpack_from('<2HI', buf, pr.get_and_add(len(self)))
         return self
 
-    def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
+    def to_bytes(self, buf: bytearray, pr: Pointer):
         pass
 
     @Debugger.print_all_fields
@@ -624,7 +671,7 @@ class MethodIdItem(Writeable):
         self.class_id, self.proto_id, self.name_id = unpack_from('<2HI', buf, pr.get_and_add(len(self)))
         return self
 
-    def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
+    def to_bytes(self, buf: bytearray, pr: Pointer):
         pass
 
     @Debugger.print_all_fields
@@ -653,7 +700,7 @@ class EncodedArray(Writeable):
         for _ in range(size):
             EncodedValue.ignore(buf, pr)
 
-    def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
+    def to_bytes(self, buf: bytearray, pr: Pointer):
         pass
 
     @Debugger.print_all_fields
@@ -726,7 +773,7 @@ class EncodedValue(Writeable):
         else:
             raise RuntimeWarning('Unknown type for encoded value ' + hex(value_type.value))
 
-    def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
+    def to_bytes(self, buf: bytearray, pr: Pointer):
         pass
 
     @Debugger.print_all_fields
@@ -766,7 +813,7 @@ class AnnotationElement(Writeable):
         Leb128.pass_leb128(buf, pr)
         EncodedValue.ignore(buf, pr)
 
-    def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
+    def to_bytes(self, buf: bytearray, pr: Pointer):
         pass
 
     @Debugger.print_all_fields
@@ -795,7 +842,7 @@ class EncodedAnnotation(Writeable):
         for _ in range(size):
             AnnotationElement.ignore(buf, pr)
 
-    def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
+    def to_bytes(self, buf: bytearray, pr: Pointer):
         pass
 
     @Debugger.print_all_fields
@@ -824,7 +871,8 @@ class AnnotationItem(Writeable):
         pr.add(0x01)
         EncodedAnnotation.ignore(buf, pr)
 
-    def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
+    @Pointer.update_offset
+    def to_bytes(self, buf: bytearray, pr: Pointer):
         pass
 
     @Debugger.print_all_fields
@@ -848,7 +896,7 @@ class AnnotationOff(Writeable):
             )
         return self
 
-    def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
+    def to_bytes(self, buf: bytearray, pr: Pointer):
         pass
 
     @Debugger.print_all_fields
@@ -872,7 +920,9 @@ class AnnotationSetItem(Writeable):
             self.entries.append(AnnotationOff().parse(buf, pr))
         return self
 
-    def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
+    @Pointer.aligned_4_with_zero
+    @Pointer.update_offset
+    def to_bytes(self, buf: bytearray, pr: Pointer):
         pass
 
     @Debugger.print_all_fields
@@ -897,7 +947,7 @@ class FieldAnnotation(Writeable):
             )
         return self
 
-    def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
+    def to_bytes(self, buf: bytearray, pr: Pointer):
         pass
 
     @Debugger.print_all_fields
@@ -925,7 +975,7 @@ class MethodAnnotation(Writeable):
             )
         return self
 
-    def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
+    def to_bytes(self, buf: bytearray, pr: Pointer):
         pass
 
     @Debugger.print_all_fields
@@ -952,7 +1002,7 @@ class AnnotationSetRef(Writeable):
             )
         return self
 
-    def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
+    def to_bytes(self, buf: bytearray, pr: Pointer):
         pass
 
     @Debugger.print_all_fields
@@ -976,7 +1026,9 @@ class AnnotationSetRefListItem(Writeable):
             self.list.append(AnnotationSetRef().parse(buf, pr))
         return self
 
-    def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
+    @Pointer.aligned_4_with_zero
+    @Pointer.update_offset
+    def to_bytes(self, buf: bytearray, pr: Pointer):
         pass
 
     @Debugger.print_all_fields
@@ -1001,7 +1053,7 @@ class ParameterAnnotation(Writeable):
             )
         return self
 
-    def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
+    def to_bytes(self, buf: bytearray, pr: Pointer):
         pass
 
     @Debugger.print_all_fields
@@ -1044,7 +1096,9 @@ class AnnotationsDirectoryItem(Writeable):
             )
         return self
 
-    def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
+    @Pointer.aligned_4_with_zero
+    @Pointer.update_offset
+    def to_bytes(self, buf: bytearray, pr: Pointer):
         pass
 
     @Debugger.print_all_fields
@@ -1059,7 +1113,6 @@ class TryBlock(Writeable):
         self.insns_count: int = -1
         self.handler_off: int = -1
 
-    @Pointer.update_offset
     def parse(self, buf: bytes, pr: Pointer):
         self.start_addr, \
         self.insns_count, \
@@ -1070,7 +1123,7 @@ class TryBlock(Writeable):
     def ignore(pr: Pointer):
         pr.add(0x08)
 
-    def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
+    def to_bytes(self, buf: bytearray, pr: Pointer):
         pass
 
     @Debugger.print_all_fields
@@ -1096,7 +1149,7 @@ class EncodedTypeAddrPair(Writeable):
     def ignore(buf: bytes, pr: Pointer):
         Leb128.pass_leb128(buf, pr, 2)
 
-    def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
+    def to_bytes(self, buf: bytearray, pr: Pointer):
         pass
 
     @Debugger.print_all_fields
@@ -1127,7 +1180,7 @@ class EncodedCatchHandler(Writeable):
         if size <= 0:
             Leb128.pass_leb128(buf, pr)
 
-    def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
+    def to_bytes(self, buf: bytearray, pr: Pointer):
         pass
 
     @Debugger.print_all_fields
@@ -1153,7 +1206,7 @@ class EncodedCatchHandlerList(Writeable):
         for _ in range(size):
             EncodedCatchHandler.ignore(buf, pr)
 
-    def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
+    def to_bytes(self, buf: bytearray, pr: Pointer):
         pass
 
     @Debugger.print_all_fields
@@ -1227,7 +1280,7 @@ class DebugOpcode(Writeable):
         else:
             raise RuntimeWarning('error debug info type.')
 
-    def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
+    def to_bytes(self, buf: bytearray, pr: Pointer):
         pass
 
     @Debugger.print_all_fields
@@ -1268,7 +1321,8 @@ class DebugInfoItem(Writeable):
             DebugOpcode.ignore(buf, pr)
         DebugOpcode.ignore(buf, pr)  # DebugInfoOpCodes.DBG_END_SEQUENCE
 
-    def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
+    @Pointer.update_offset
+    def to_bytes(self, buf: bytearray, pr: Pointer):
         pass
 
     @Debugger.print_all_fields
@@ -1317,7 +1371,9 @@ class CodeItem(Writeable):
             )
         return self
 
-    def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
+    @Pointer.aligned_4_with_zero
+    @Pointer.update_offset
+    def to_bytes(self, buf: bytearray, pr: Pointer):
         pass
 
     @Debugger.print_all_fields
@@ -1346,7 +1402,7 @@ class EncodedMethod(Writeable):
             )
         return self
 
-    def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
+    def to_bytes(self, buf: bytearray, pr: Pointer):
         pass
 
     @Debugger.print_all_fields
@@ -1367,7 +1423,7 @@ class EncodedField(Writeable):
         self.access_flags = Leb128.read_unsigned_leb128(buf, pr)
         return self
 
-    def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
+    def to_bytes(self, buf: bytearray, pr: Pointer):
         pass
 
     @Debugger.print_all_fields
@@ -1427,7 +1483,8 @@ class ClassDataItem(Writeable):
             index += f.method_idx_diff
             f.field_idx = index
 
-    def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
+    @Pointer.update_offset
+    def to_bytes(self, buf: bytearray, pr: Pointer):
         pass
 
     @Debugger.print_all_fields
@@ -1452,7 +1509,8 @@ class EncodedArrayItem(Writeable):
     def ignore(buf: bytes, pr: Pointer):
         EncodedArray.ignore(buf, pr)
 
-    def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
+    @Pointer.update_offset
+    def to_bytes(self, buf: bytearray, pr: Pointer):
         pass
 
     @Debugger.print_all_fields
@@ -1477,7 +1535,6 @@ class ClassDefItem(Writeable):
         self.class_data: Optional[ClassDataItem] = None
         self.static_values: Optional[EncodedArrayItem] = None
 
-    @Pointer.update_offset
     def parse(self, buf: bytes, pr: Pointer):
         self.class_id, \
         self.access_flag, \
@@ -1510,7 +1567,7 @@ class ClassDefItem(Writeable):
 
         return self
 
-    def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
+    def to_bytes(self, buf: bytearray, pr: Pointer):
         pass
 
     @Debugger.print_all_fields
@@ -1546,7 +1603,10 @@ class MapList(Writeable):
         self.__init_data_all_pools()
         return self
 
-    def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
+    @Pointer.aligned_4_with_zero
+    @Pointer.update_offset
+    def to_bytes(self, buf: bytearray, pr: Pointer):
+        # TODO: update map list offset
         pass
 
     @staticmethod
@@ -1566,6 +1626,8 @@ class MapList(Writeable):
         pass
 
     def __init_data_pool(self, map_item_type: MapListItemType, item_type: type):
+        if map_item_type not in self.map:
+            return
         map_item = self.map[map_item_type]
         map_item.data = Pool(map_item, item_type)
 
@@ -1619,11 +1681,66 @@ class DexFile:
             buf = reader.read()
         return DexFile().parse(buf)
 
-    def to_bytes(self, buf: bytearray, pr: Pointer) -> bytearray:
+    def pool_to_bytes_if_exist(self, item_type: MapListItemType, buf: bytearray, pr: Pointer):
+        if item_type in self.map_list.map:
+            self.map_list.map[item_type].data.to_bytes(buf, pr)
+
+    def to_bytes(self):
+        index_buf = bytearray()
+        index_pr = Pointer(0)
+        self.header.to_bytes(index_buf, index_pr)
+
+        data_off = self.__compute_data_off()
+        data_buf = bytearray()
+        data_pr = Pointer(data_off)
+
+        self.pool_to_bytes_if_exist(MapListItemType.TYPE_STRING_DATA_ITEM, data_buf, data_pr)
+        self.pool_to_bytes_if_exist(MapListItemType.TYPE_STRING_ID_ITEM, index_buf, index_pr)
+        self.pool_to_bytes_if_exist(MapListItemType.TYPE_TYPE_ID_ITEM, index_buf, index_pr)
+        self.pool_to_bytes_if_exist(MapListItemType.TYPE_TYPE_LIST_ITEM, data_buf, data_pr)
+        self.pool_to_bytes_if_exist(MapListItemType.TYPE_PROTO_ID_ITEM, index_buf, index_pr)
+        self.pool_to_bytes_if_exist(MapListItemType.TYPE_FIELD_ID_ITEM, index_buf, index_pr)
+        self.pool_to_bytes_if_exist(MapListItemType.TYPE_METHOD_ID_ITEM, index_buf, index_pr)
+
+        self.pool_to_bytes_if_exist(MapListItemType.TYPE_ANNOTATION_ITEM, data_buf, data_pr)
+        self.pool_to_bytes_if_exist(MapListItemType.TYPE_ANNOTATION_SET_ITEM, data_buf, data_pr)
+        self.pool_to_bytes_if_exist(MapListItemType.TYPE_ANNOTATION_SET_REF_LIST, data_buf, data_pr)
+        self.pool_to_bytes_if_exist(MapListItemType.TYPE_ANNOTATIONS_DIRECTORY_ITEM, data_buf, data_pr)
+
+        self.pool_to_bytes_if_exist(MapListItemType.TYPE_ENCODED_ARRAY_ITEM, data_buf, data_pr)
+        self.pool_to_bytes_if_exist(MapListItemType.TYPE_DEBUG_INFO_ITEM, data_buf, data_pr)
+        self.pool_to_bytes_if_exist(MapListItemType.TYPE_CODE_ITEM, data_buf, data_pr)
+        self.pool_to_bytes_if_exist(MapListItemType.TYPE_CLASS_DATA_ITEM, data_buf, data_pr)
+        self.pool_to_bytes_if_exist(MapListItemType.TYPE_CLASS_DEF_ITEM, data_buf, data_pr)
+
+        self.update_map_list()
+        self.map_list.to_bytes(data_buf, data_pr)
+        dex_buf = index_buf + data_buf
+        self.update_header(dex_buf)
+        self.update_checksum(dex_buf)
+        self.update_signature(dex_buf)
+        return dex_buf
+
+    def update_signature(self, dex_buf: bytearray):
         pass
 
-    def compute_data_off(self):
+    def update_checksum(self, dex_buf: bytearray):
         pass
+
+    def update_header(self, dex_buf: bytearray):
+        pass
+
+    def update_map_list(self):
+        pass
+
+    def __compute_data_off(self):
+        return 0x70 * 1 + \
+               0x04 * len(self.map_list.map[MapListItemType.TYPE_STRING_ID_ITEM].data) + \
+               0x04 * len(self.map_list.map[MapListItemType.TYPE_TYPE_ID_ITEM].data) + \
+               0x0c * len(self.map_list.map[MapListItemType.TYPE_PROTO_ID_ITEM].data) + \
+               0x08 * len(self.map_list.map[MapListItemType.TYPE_FIELD_ID_ITEM].data) + \
+               0x08 * len(self.map_list.map[MapListItemType.TYPE_METHOD_ID_ITEM].data) + \
+               0x20 * len(self.map_list.map[MapListItemType.TYPE_CLASS_DEF_ITEM].data)
 
     @Debugger.print_all_fields
     def __repr__(self):
