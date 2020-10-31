@@ -1,3 +1,5 @@
+import hashlib
+import zlib
 from abc import ABCMeta, abstractmethod
 from enum import IntEnum, unique
 from functools import wraps
@@ -167,6 +169,7 @@ class Pointer:
             pr.aligned(0x04)
             while old_len < pr.cur:
                 buf.append(0)
+                old_len += 1
 
             return func(*args, **kwargs)
 
@@ -180,6 +183,20 @@ class Pointer:
             obj: Writeable = ReflectHelper.get_var_by_index(0, *args, **kwargs)
             obj.offset = pr.cur
             return func(*args, **kwargs)
+
+        return wrapper
+
+    @staticmethod
+    def update_pointer(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            pr: Pointer = ReflectHelper.get_first_var_by_type(Pointer, *args, **kwargs)
+            buf: bytearray = ReflectHelper.get_first_var_by_type(bytearray, *args, **kwargs)
+            old_len = len(buf)
+            ret = func(*args, **kwargs)
+            new_len = len(buf)
+            pr.add(new_len - old_len)
+            return ret
 
         return wrapper
 
@@ -245,8 +262,8 @@ class Leb128:
         return result
 
     @staticmethod
-    def write_unsigned_leb128(data: int) -> bytearray:
-        result: bytearray = bytearray()
+    def write_unsigned_leb128(data: int, pr: Pointer = None) -> bytearray:
+        result = bytearray()
         while True:
             out: int = data & 0x7f
             if out != data:
@@ -255,6 +272,8 @@ class Leb128:
             else:
                 result.append(out)
                 break
+        if pr:
+            pr.add(len(result))
         return result
 
     @staticmethod
@@ -297,8 +316,8 @@ class Leb128:
         return result
 
     @staticmethod
-    def write_signed_leb128(data: int) -> bytearray:
-        result: bytearray = bytearray()
+    def write_signed_leb128(data: int, pr: Pointer = None) -> bytearray:
+        result = bytearray()
         while True:
             out: int = data & 0x7f
             data >>= 7
@@ -307,6 +326,8 @@ class Leb128:
                 break
             else:
                 result.append(out | 0x80)
+        if pr:
+            pr.add(len(result))
         return result
 
     @staticmethod
@@ -314,8 +335,8 @@ class Leb128:
         return Leb128.read_unsigned_leb128(buf, pr) - 1
 
     @staticmethod
-    def write_unsigned_leb128p1(data: int) -> bytearray:
-        return Leb128.write_unsigned_leb128(data + 1)
+    def write_unsigned_leb128p1(data: int, pr: Pointer = None) -> bytearray:
+        return Leb128.write_unsigned_leb128(data + 1, pr)
 
 
 class Writeable(metaclass=ABCMeta):
@@ -355,8 +376,13 @@ class MapItem(Writeable):
         self.type = MapListItemType(map_type)
         return self
 
+    @Pointer.update_pointer
     def to_bytes(self, buf: bytearray, pr: Pointer):
-        pass
+        buf.extend(pack('<2H2I',
+                        self.type.value,
+                        self.unused,
+                        self.size,
+                        self.data_offset))
 
     @Debugger.print_all_fields
     def __repr__(self):
@@ -483,6 +509,8 @@ class Header(Writeable):
         pr.get_and_add(len(self))
         return self
 
+    @Pointer.update_offset
+    @Pointer.update_pointer
     def to_bytes(self, buf: bytearray, pr: Pointer):
         buf.extend(self.magic)
         buf.extend(pack('<I', self.checksum))
@@ -533,8 +561,10 @@ class StringDataItem(Writeable):
         return self
 
     @Pointer.update_offset
+    @Pointer.update_pointer
     def to_bytes(self, buf: bytearray, pr: Pointer):
-        pass
+        buf.extend(Leb128.write_unsigned_leb128(self.size))
+        buf.extend(self.data)
 
     @Debugger.print_all_fields
     def __repr__(self):
@@ -556,8 +586,11 @@ class StringIdItem(Writeable):
         )
         return self
 
+    @Pointer.update_pointer
     def to_bytes(self, buf: bytearray, pr: Pointer):
-        pass
+        assert self.data.offset != -1
+        self.data_offset = self.data.offset
+        buf.extend(pack('<I', self.data_offset))
 
     @Debugger.print_all_fields
     def __repr__(self):
@@ -576,8 +609,9 @@ class TypeIdItem(Writeable):
         self.descriptor_id = unpack_from('<I', buf, pr.get_and_add(len(self)))[0]
         return self
 
+    @Pointer.update_pointer
     def to_bytes(self, buf: bytearray, pr: Pointer):
-        pass
+        buf.extend(pack('<I', self.descriptor_id))
 
     @Debugger.print_all_fields
     def __repr__(self):
@@ -601,8 +635,10 @@ class TypeListItem(Writeable):
 
     @Pointer.aligned_4_with_zero
     @Pointer.update_offset
+    @Pointer.update_pointer
     def to_bytes(self, buf: bytearray, pr: Pointer):
-        pass
+        buf.extend(pack('<I', self.size))
+        buf.extend(pack('<' + str(self.size) + 'H', *self.list))
 
     @Debugger.print_all_fields
     def __repr__(self):
@@ -627,8 +663,10 @@ class ProtoIdItem(Writeable):
 
         return self
 
+    @Pointer.update_pointer
     def to_bytes(self, buf: bytearray, pr: Pointer):
-        pass
+        self.parameters_off = self.parameters.offset if self.parameters else 0
+        buf.extend(pack('<3I', self.shorty_id, self.return_type_idx, self.parameters_off))
 
     @Debugger.print_all_fields
     def __repr__(self):
@@ -649,8 +687,9 @@ class FieldIdItem(Writeable):
         self.class_id, self.type_id, self.name_id = unpack_from('<2HI', buf, pr.get_and_add(len(self)))
         return self
 
+    @Pointer.update_pointer
     def to_bytes(self, buf: bytearray, pr: Pointer):
-        pass
+        buf.extend(pack('<2HI', self.class_id, self.type_id, self.name_id))
 
     @Debugger.print_all_fields
     def __repr__(self):
@@ -671,8 +710,9 @@ class MethodIdItem(Writeable):
         self.class_id, self.proto_id, self.name_id = unpack_from('<2HI', buf, pr.get_and_add(len(self)))
         return self
 
+    @Pointer.update_pointer
     def to_bytes(self, buf: bytearray, pr: Pointer):
-        pass
+        buf.extend(pack('<2HI', self.class_id, self.proto_id, self.name_id))
 
     @Debugger.print_all_fields
     def __repr__(self):
@@ -701,7 +741,10 @@ class EncodedArray(Writeable):
             EncodedValue.ignore(buf, pr)
 
     def to_bytes(self, buf: bytearray, pr: Pointer):
-        pass
+        assert self.size == len(self.values)
+        buf.extend(Leb128.write_unsigned_leb128(self.size, pr))
+        for v in self.values:
+            v.to_bytes(buf, pr)
 
     @Debugger.print_all_fields
     def __repr__(self):
@@ -774,7 +817,39 @@ class EncodedValue(Writeable):
             raise RuntimeWarning('Unknown type for encoded value ' + hex(value_type.value))
 
     def to_bytes(self, buf: bytearray, pr: Pointer):
-        pass
+        buf.append((self.value_type.value & 0x1f) | ((self.value_arg & 0x07) << 5))
+        pr.add(0x01)
+        if self.value_type == EncodedValueType.VALUE_BYTE:
+            assert self.data and type(self.data) == int and self.data <= 0xff
+            buf.append(self.data)
+            pr.add(0x01)
+        elif self.value_type in (EncodedValueType.VALUE_SHORT,
+                                 EncodedValueType.VALUE_CHAR,
+                                 EncodedValueType.VALUE_INT,
+                                 EncodedValueType.VALUE_LONG,
+                                 EncodedValueType.VALUE_FLOAT,
+                                 EncodedValueType.VALUE_DOUBLE,
+                                 EncodedValueType.VALUE_STRING,
+                                 EncodedValueType.VALUE_TYPE,
+                                 EncodedValueType.VALUE_FIELD,
+                                 EncodedValueType.VALUE_METHOD,
+                                 EncodedValueType.VALUE_ENUM):
+            assert type(self.data) == int
+            ret = EncodedValue.write_encode_value_data(self.data, self.value_arg + 1)
+            buf.extend(ret)
+            pr.add(len(ret))
+        elif self.value_type == EncodedValueType.VALUE_ARRAY:
+            assert self.data and type(self.data) == EncodedArray
+            self.data.to_bytes(buf, pr)
+        elif self.value_type == EncodedValueType.VALUE_ANNOTATION:
+            assert self.data and type(self.data) == EncodedAnnotation
+            self.data.to_bytes(buf, pr)
+        elif self.value_type in (EncodedValueType.VALUE_NULL,
+                                 EncodedValueType.VALUE_BOOLEAN):
+            assert self.data is None
+            pass
+        else:
+            raise RuntimeWarning('Unknown type for encoded value ' + hex(self.value_type.value))
 
     @Debugger.print_all_fields
     def __repr__(self):
@@ -791,10 +866,12 @@ class EncodedValue(Writeable):
         return ret & 0xffffffff_ffffffff
 
     @staticmethod
-    def write_encode_value_data(buf: bytearray, data: int, size: int):
+    def write_encode_value_data(data: int, size: int) -> bytearray:
+        result = bytearray()
         for _ in range(size):
-            buf.append(data & 0xff)
+            result.append(data & 0xff)
             data >>= 8
+        return result
 
 
 class AnnotationElement(Writeable):
@@ -814,7 +891,9 @@ class AnnotationElement(Writeable):
         EncodedValue.ignore(buf, pr)
 
     def to_bytes(self, buf: bytearray, pr: Pointer):
-        pass
+        assert self.value
+        buf.extend(Leb128.write_unsigned_leb128(self.name_idx, pr))
+        self.value.to_bytes(buf, pr)
 
     @Debugger.print_all_fields
     def __repr__(self):
@@ -843,7 +922,11 @@ class EncodedAnnotation(Writeable):
             AnnotationElement.ignore(buf, pr)
 
     def to_bytes(self, buf: bytearray, pr: Pointer):
-        pass
+        assert self.size == len(self.elements)
+        buf.extend(Leb128.write_unsigned_leb128(self.type_idx, pr))
+        buf.extend(Leb128.write_unsigned_leb128(self.size, pr))
+        for e in self.elements:
+            e.to_bytes(buf, pr)
 
     @Debugger.print_all_fields
     def __repr__(self):
@@ -872,8 +955,12 @@ class AnnotationItem(Writeable):
         EncodedAnnotation.ignore(buf, pr)
 
     @Pointer.update_offset
+    @Pointer.update_pointer
     def to_bytes(self, buf: bytearray, pr: Pointer):
-        pass
+        # assert self.annotation
+        # buf.extend(pack('<I', self.visibility.value))
+        # self.annotation.to_bytes(buf, pr)
+        buf.extend(self.buf)
 
     @Debugger.print_all_fields
     def __repr__(self):
@@ -896,8 +983,10 @@ class AnnotationOff(Writeable):
             )
         return self
 
+    @Pointer.update_pointer
     def to_bytes(self, buf: bytearray, pr: Pointer):
-        pass
+        self.annotation_off = self.annotation.offset if self.annotation else 0
+        buf.extend(pack('<I', self.annotation_off))
 
     @Debugger.print_all_fields
     def __repr__(self):
@@ -923,7 +1012,11 @@ class AnnotationSetItem(Writeable):
     @Pointer.aligned_4_with_zero
     @Pointer.update_offset
     def to_bytes(self, buf: bytearray, pr: Pointer):
-        pass
+        assert self.size == len(self.entries)
+        buf.extend(pack('<I', self.size))
+        pr.add(0x04)
+        for e in self.entries:
+            e.to_bytes(buf, pr)
 
     @Debugger.print_all_fields
     def __repr__(self):
@@ -947,8 +1040,10 @@ class FieldAnnotation(Writeable):
             )
         return self
 
+    @Pointer.update_pointer
     def to_bytes(self, buf: bytearray, pr: Pointer):
-        pass
+        self.annotations_off = self.annotations.offset if self.annotations else 0
+        buf.extend(pack('<2I', self.field_idx, self.annotations_off))
 
     @Debugger.print_all_fields
     def __repr__(self):
@@ -975,8 +1070,10 @@ class MethodAnnotation(Writeable):
             )
         return self
 
+    @Pointer.update_pointer
     def to_bytes(self, buf: bytearray, pr: Pointer):
-        pass
+        self.annotations_off = self.annotations.offset if self.annotations else 0
+        buf.extend(pack('<2I', self.method_idx, self.annotations_off))
 
     @Debugger.print_all_fields
     def __repr__(self):
@@ -1002,8 +1099,10 @@ class AnnotationSetRef(Writeable):
             )
         return self
 
+    @Pointer.update_pointer
     def to_bytes(self, buf: bytearray, pr: Pointer):
-        pass
+        self.annotations_off = self.annotations.offset if self.annotations else 0
+        buf.extend(pack('<I', self.annotations_off))
 
     @Debugger.print_all_fields
     def __repr__(self):
@@ -1029,7 +1128,11 @@ class AnnotationSetRefListItem(Writeable):
     @Pointer.aligned_4_with_zero
     @Pointer.update_offset
     def to_bytes(self, buf: bytearray, pr: Pointer):
-        pass
+        assert self.size == len(self.list)
+        buf.extend(pack('<I', self.size))
+        pr.add(0x04)
+        for e in self.list:
+            e.to_bytes(buf, pr)
 
     @Debugger.print_all_fields
     def __repr__(self):
@@ -1053,8 +1156,10 @@ class ParameterAnnotation(Writeable):
             )
         return self
 
+    @Pointer.update_pointer
     def to_bytes(self, buf: bytearray, pr: Pointer):
-        pass
+        self.annotations_off = self.annotations.offset if self.annotations else 0
+        buf.extend(pack('<2I', self.method_idx, self.annotations_off))
 
     @Debugger.print_all_fields
     def __repr__(self):
@@ -1099,7 +1204,18 @@ class AnnotationsDirectoryItem(Writeable):
     @Pointer.aligned_4_with_zero
     @Pointer.update_offset
     def to_bytes(self, buf: bytearray, pr: Pointer):
-        pass
+        assert self.fields_size == len(self.field_annotations)
+        assert self.methods_size == len(self.method_annotations)
+        assert self.parameters_size == len(self.parameter_annotations)
+        self.class_annotations_off = self.class_annotations.offset if self.class_annotations else 0
+        buf.extend(pack('<4I', self.class_annotations_off, self.fields_size, self.methods_size, self.parameters_size))
+        pr.add(0x10)
+        for f in self.field_annotations:
+            f.to_bytes(buf, pr)
+        for m in self.method_annotations:
+            m.to_bytes(buf, pr)
+        for p in self.parameter_annotations:
+            p.to_bytes(buf, pr)
 
     @Debugger.print_all_fields
     def __repr__(self):
@@ -1123,8 +1239,9 @@ class TryBlock(Writeable):
     def ignore(pr: Pointer):
         pr.add(0x08)
 
+    @Pointer.update_pointer
     def to_bytes(self, buf: bytearray, pr: Pointer):
-        pass
+        buf.extend(pack('<I2H', self.start_addr, self.insns_count, self.handler_off))
 
     @Debugger.print_all_fields
     def __repr__(self):
@@ -1150,7 +1267,8 @@ class EncodedTypeAddrPair(Writeable):
         Leb128.pass_leb128(buf, pr, 2)
 
     def to_bytes(self, buf: bytearray, pr: Pointer):
-        pass
+        buf.extend(Leb128.write_unsigned_leb128(self.type_idx, pr))
+        buf.extend(Leb128.write_unsigned_leb128(self.addr, pr))
 
     @Debugger.print_all_fields
     def __repr__(self):
@@ -1181,7 +1299,14 @@ class EncodedCatchHandler(Writeable):
             Leb128.pass_leb128(buf, pr)
 
     def to_bytes(self, buf: bytearray, pr: Pointer):
-        pass
+        assert abs(self.size) == len(self.handlers)
+        assert (self.size <= 0 and self.catch_all_addr != -1) or \
+               (self.size > 0 and self.catch_all_addr == -1)
+        buf.extend(Leb128.write_signed_leb128(self.size, pr))
+        for h in self.handlers:
+            h.to_bytes(buf, pr)
+        if self.size <= 0:
+            buf.extend(Leb128.write_unsigned_leb128(self.catch_all_addr, pr))
 
     @Debugger.print_all_fields
     def __repr__(self):
@@ -1207,7 +1332,10 @@ class EncodedCatchHandlerList(Writeable):
             EncodedCatchHandler.ignore(buf, pr)
 
     def to_bytes(self, buf: bytearray, pr: Pointer):
-        pass
+        assert self.size == len(self.list)
+        buf.extend(Leb128.write_unsigned_leb128(self.size, pr))
+        for e in self.list:
+            e.to_bytes(buf, pr)
 
     @Debugger.print_all_fields
     def __repr__(self):
@@ -1281,7 +1409,36 @@ class DebugOpcode(Writeable):
             raise RuntimeWarning('error debug info type.')
 
     def to_bytes(self, buf: bytearray, pr: Pointer):
-        pass
+        if self.opcode == DebugInfoOpCodes.DBG_FIRST_SPECIAL:
+            buf.append(self.special_value)
+            pr.add(0x01)
+            return
+
+        buf.append(self.opcode.value)
+        pr.add(0x01)
+        if self.opcode in (DebugInfoOpCodes.DBG_END_SEQUENCE,
+                           DebugInfoOpCodes.DBG_SET_PROLOGUE_END,
+                           DebugInfoOpCodes.DBG_SET_EPILOGUE_BEGIN):
+            pass
+        elif self.opcode == DebugInfoOpCodes.DBG_ADVANCE_PC:
+            buf.extend(Leb128.write_unsigned_leb128(self.addr_diff, pr))
+        elif self.opcode == DebugInfoOpCodes.DBG_ADVANCE_LINE:
+            buf.extend(Leb128.write_signed_leb128(self.line_diff, pr))
+        elif self.opcode == DebugInfoOpCodes.DBG_START_LOCAL:
+            buf.extend(Leb128.write_unsigned_leb128(self.register_num, pr))
+            buf.extend(Leb128.write_unsigned_leb128p1(self.name_idx, pr))
+            buf.extend(Leb128.write_unsigned_leb128p1(self.type_idx, pr))
+        elif self.opcode == DebugInfoOpCodes.DBG_START_LOCAL_EXTENDED:
+            buf.extend(Leb128.write_unsigned_leb128(self.register_num, pr))
+            buf.extend(Leb128.write_unsigned_leb128p1(self.name_idx, pr))
+            buf.extend(Leb128.write_unsigned_leb128p1(self.type_idx, pr))
+            buf.extend(Leb128.write_unsigned_leb128p1(self.sig_idx, pr))
+        elif self.opcode in (DebugInfoOpCodes.DBG_END_LOCAL, DebugInfoOpCodes.DBG_RESTART_LOCAL):
+            buf.extend(Leb128.write_unsigned_leb128(self.register_num, pr))
+        elif self.opcode == DebugInfoOpCodes.DBG_SET_FILE:
+            buf.extend(Leb128.write_unsigned_leb128(self.name_idx, pr))
+        else:
+            raise RuntimeWarning('error debug info type.')
 
     @Debugger.print_all_fields
     def __repr__(self):
@@ -1322,8 +1479,16 @@ class DebugInfoItem(Writeable):
         DebugOpcode.ignore(buf, pr)  # DebugInfoOpCodes.DBG_END_SEQUENCE
 
     @Pointer.update_offset
+    @Pointer.update_pointer
     def to_bytes(self, buf: bytearray, pr: Pointer):
-        pass
+        # assert self.parameters_size == len(self.parameter_names)
+        # buf.extend(Leb128.write_unsigned_leb128(self.line_start))
+        # buf.extend(Leb128.write_unsigned_leb128(self.parameters_size))
+        # for n in self.parameter_names:
+        #     buf.extend(Leb128.write_unsigned_leb128p1(n))
+        # for o in self.opcodes:
+        #     o.to_bytes(buf, pr)
+        buf.extend(self.buf)
 
     @Debugger.print_all_fields
     def __repr__(self):
@@ -1374,7 +1539,28 @@ class CodeItem(Writeable):
     @Pointer.aligned_4_with_zero
     @Pointer.update_offset
     def to_bytes(self, buf: bytearray, pr: Pointer):
-        pass
+        assert self.insns_size * 0x02 == len(self.insns)
+        self.debug_info_off = self.debug_info.offset if self.debug_info else 0
+        buf.extend(pack('<4H2I',
+                        self.registers_size,
+                        self.ins_size,
+                        self.outs_size,
+                        self.tries_size,
+                        self.debug_info_off,
+                        self.insns_size))
+        buf.extend(self.insns)
+        if self.tries_size > 0:
+            # start = pr.cur
+            # pr.aligned(0x04, self.insns_size * 0x02)
+            # while start < pr.cur:
+            #     buf.append(0x00)
+            #     start += 1
+            #
+            # for t in self.tries:
+            #     t.to_bytes(buf, pr)
+            # self.handlers.to_bytes(buf, pr)
+            buf.extend(self.try_buf)
+            pr.add(len(self.try_buf))
 
     @Debugger.print_all_fields
     def __repr__(self):
@@ -1402,8 +1588,13 @@ class EncodedMethod(Writeable):
             )
         return self
 
+    @Pointer.update_pointer
     def to_bytes(self, buf: bytearray, pr: Pointer):
-        pass
+        assert self.method_idx_diff > 0
+        self.code_off = self.code.offset if self.code else 0
+        buf.extend(Leb128.write_unsigned_leb128(self.method_idx_diff))
+        buf.extend(Leb128.write_unsigned_leb128(self.access_flags))
+        buf.extend(Leb128.write_unsigned_leb128(self.code_off))
 
     @Debugger.print_all_fields
     def __repr__(self):
@@ -1423,8 +1614,11 @@ class EncodedField(Writeable):
         self.access_flags = Leb128.read_unsigned_leb128(buf, pr)
         return self
 
+    @Pointer.update_pointer
     def to_bytes(self, buf: bytearray, pr: Pointer):
-        pass
+        assert self.field_idx_diff > 0
+        buf.extend(Leb128.write_unsigned_leb128(self.field_idx_diff))
+        buf.extend(Leb128.write_unsigned_leb128(self.access_flags))
 
     @Debugger.print_all_fields
     def __repr__(self):
@@ -1474,22 +1668,61 @@ class ClassDataItem(Writeable):
             f.field_idx = index
 
         index = 0
-        for f in self.direct_methods:
-            index += f.method_idx_diff
-            f.field_idx = index
+        for m in self.direct_methods:
+            index += m.method_idx_diff
+            m.method_idx = index
 
         index = 0
-        for f in self.virtual_methods:
-            index += f.method_idx_diff
-            f.field_idx = index
+        for m in self.virtual_methods:
+            index += m.method_idx_diff
+            m.method_idx = index
 
     @Pointer.update_offset
     def to_bytes(self, buf: bytearray, pr: Pointer):
-        pass
+        assert self.static_fields_size == len(self.static_fields)
+        assert self.instance_fields_size == len(self.instance_fields)
+        assert self.direct_methods_size == len(self.direct_methods)
+        assert self.virtual_methods_size == len(self.virtual_methods)
+
+        buf.extend(Leb128.write_unsigned_leb128(self.static_fields_size, pr))
+        buf.extend(Leb128.write_unsigned_leb128(self.instance_fields_size, pr))
+        buf.extend(Leb128.write_unsigned_leb128(self.direct_methods_size, pr))
+        buf.extend(Leb128.write_unsigned_leb128(self.virtual_methods_size, pr))
+
+        self.update_diff()
+        for s in self.static_fields:
+            s.to_bytes(buf, pr)
+        for i in self.instance_fields:
+            i.to_bytes(buf, pr)
+        for d in self.direct_methods:
+            d.to_bytes(buf, pr)
+        for v in self.virtual_methods:
+            v.to_bytes(buf, pr)
 
     @Debugger.print_all_fields
     def __repr__(self):
         pass
+
+    def update_diff(self):
+        index = 0
+        for f in self.static_fields:
+            f.field_idx_diff = f.field_idx - index
+            index = f.field_idx
+
+        index = 0
+        for f in self.instance_fields:
+            f.field_idx_diff = f.field_idx - index
+            index = f.field_idx
+
+        index = 0
+        for m in self.direct_methods:
+            m.method_idx_diff = m.method_idx - index
+            index = m.method_idx
+
+        index = 0
+        for m in self.virtual_methods:
+            m.method_idx_diff = m.method_idx - index
+            index = m.method_idx
 
 
 class EncodedArrayItem(Writeable):
@@ -1510,8 +1743,11 @@ class EncodedArrayItem(Writeable):
         EncodedArray.ignore(buf, pr)
 
     @Pointer.update_offset
+    @Pointer.update_pointer
     def to_bytes(self, buf: bytearray, pr: Pointer):
-        pass
+        # assert self.encoded_array
+        # self.encoded_array.to_bytes(buf, pr)
+        buf.extend(self.buf)
 
     @Debugger.print_all_fields
     def __repr__(self):
@@ -1567,8 +1803,21 @@ class ClassDefItem(Writeable):
 
         return self
 
+    @Pointer.update_pointer
     def to_bytes(self, buf: bytearray, pr: Pointer):
-        pass
+        self.interfaces_off = self.interfaces.offset if self.interfaces else 0
+        self.annotations_off = self.annotations.offset if self.annotations else 0
+        self.class_data_off = self.class_data.offset if self.class_data else 0
+        self.static_values_off = self.static_values.offset if self.static_values else 0
+
+        buf.extend(pack('<8I', self.class_id,
+                        self.access_flag,
+                        self.superclass_idx,
+                        self.interfaces_off,
+                        self.source_file_idx,
+                        self.annotations_off,
+                        self.class_data_off,
+                        self.static_values_off))
 
     @Debugger.print_all_fields
     def __repr__(self):
@@ -1606,13 +1855,17 @@ class MapList(Writeable):
     @Pointer.aligned_4_with_zero
     @Pointer.update_offset
     def to_bytes(self, buf: bytearray, pr: Pointer):
-        # TODO: update map list offset
-        pass
+        # update map list item's offset before writing
+        self.map[MapListItemType.TYPE_MAP_LIST].data_offset = self.offset
+        buf.extend(pack('<I', self.size))
+        pr.add(0x04)
+        for item_type in sorted(self.map.keys()):
+            self.map[item_type].to_bytes(buf, pr)
 
     @staticmethod
     def get_and_add(pool_type: MapListItemType, key: int, value_type: type, buf: bytes):
         data = MapList.instance().map[pool_type].data
-        assert data
+        assert data is not None
         if key in data:
             return data[key]
 
@@ -1685,14 +1938,17 @@ class DexFile:
         if item_type in self.map_list.map:
             self.map_list.map[item_type].data.to_bytes(buf, pr)
 
-    def to_bytes(self):
+    def to_bytes(self) -> bytearray:
         index_buf = bytearray()
         index_pr = Pointer(0)
-        self.header.to_bytes(index_buf, index_pr)
 
         data_off = self.__compute_data_off()
         data_buf = bytearray()
         data_pr = Pointer(data_off)
+
+        # update header's data_off
+        self.header.data_off = data_off
+        self.header.to_bytes(index_buf, index_pr)
 
         self.pool_to_bytes_if_exist(MapListItemType.TYPE_STRING_DATA_ITEM, data_buf, data_pr)
         self.pool_to_bytes_if_exist(MapListItemType.TYPE_STRING_ID_ITEM, index_buf, index_pr)
@@ -1717,21 +1973,98 @@ class DexFile:
         self.map_list.to_bytes(data_buf, data_pr)
         dex_buf = index_buf + data_buf
         self.update_header(dex_buf)
-        self.update_checksum(dex_buf)
         self.update_signature(dex_buf)
+        self.update_checksum(dex_buf)
         return dex_buf
 
     def update_signature(self, dex_buf: bytearray):
-        pass
+        self.header.signature = hashlib.sha1(dex_buf[0x20:]).digest()
+        dex_buf[0x0c:0x20] = self.header.signature
 
     def update_checksum(self, dex_buf: bytearray):
-        pass
+        self.header.checksum = zlib.adler32(dex_buf[0x0c:])
+        dex_buf[0x08:0x0c] = pack('<I', self.header.checksum)
 
     def update_header(self, dex_buf: bytearray):
-        pass
+        self.header.file_size = len(dex_buf)
+        self.header.header_size = len(self.header)
+        self.header.map_off = self.map_list.offset
+
+        # string id
+        map_item = self.map_list.map[MapListItemType.TYPE_STRING_ID_ITEM]
+        self.header.string_ids_off = map_item.data_offset
+        self.header.string_ids_size = map_item.size
+
+        # type id
+        map_item = self.map_list.map[MapListItemType.TYPE_TYPE_ID_ITEM]
+        self.header.type_ids_off = map_item.data_offset
+        self.header.type_ids_size = map_item.size
+
+        # proto id
+        map_item = self.map_list.map[MapListItemType.TYPE_PROTO_ID_ITEM]
+        self.header.proto_ids_off = map_item.data_offset
+        self.header.proto_ids_size = map_item.size
+
+        # field id
+        map_item = self.map_list.map[MapListItemType.TYPE_FIELD_ID_ITEM]
+        self.header.field_ids_off = map_item.data_offset
+        self.header.field_ids_size = map_item.size
+
+        # method id
+        map_item = self.map_list.map[MapListItemType.TYPE_METHOD_ID_ITEM]
+        self.header.method_ids_off = map_item.data_offset
+        self.header.method_ids_size = map_item.size
+
+        # class def
+        map_item = self.map_list.map[MapListItemType.TYPE_CLASS_DEF_ITEM]
+        self.header.class_defs_off = map_item.data_offset
+        self.header.class_defs_size = map_item.size
+
+        # header's data_off has update
+        self.header.data_size = self.header.file_size - self.header.data_off
+
+        dex_buf[0x20:0x70] = pack('<20I',
+                                  self.header.file_size,
+                                  self.header.header_size,
+                                  self.header.endian_tag,
+                                  self.header.link_size,
+                                  self.header.link_off,
+                                  self.header.map_off,
+                                  self.header.string_ids_size,
+                                  self.header.string_ids_off,
+                                  self.header.type_ids_size,
+                                  self.header.type_ids_off,
+                                  self.header.proto_ids_size,
+                                  self.header.proto_ids_off,
+                                  self.header.field_ids_size,
+                                  self.header.field_ids_off,
+                                  self.header.method_ids_size,
+                                  self.header.method_ids_off,
+                                  self.header.class_defs_size,
+                                  self.header.class_defs_off,
+                                  self.header.data_size,
+                                  self.header.data_off)
 
     def update_map_list(self):
-        pass
+        self.map_list.size = len(self.map_list.map)
+        # header
+        item = self.map_list.map[MapListItemType.TYPE_HEADER_ITEM]
+        item.offset = 0
+        item.size = 1
+
+        # map list
+        item = self.map_list.map[MapListItemType.TYPE_MAP_LIST]
+        item.offset = self.map_list.offset
+        item.size = self.map_list.size
+
+        # other
+        for item_type, map_item in self.map_list.map.items():
+            if item_type in (MapListItemType.TYPE_HEADER_ITEM,
+                             MapListItemType.TYPE_MAP_LIST):
+                continue
+            assert map_item.data
+            map_item.size = len(map_item.data)
+            map_item.data_offset = map_item.data.offset
 
     def __compute_data_off(self):
         return 0x70 * 1 + \
@@ -1748,5 +2081,9 @@ class DexFile:
 
 
 if __name__ == '__main__':
-    dex = DexFile.parse_file(env.TEST_DEX_PATH)
+    main_dex = DexFile.parse_file(env.TEST_DEX_PATH)
     print("ok")
+    main_buf = main_dex.to_bytes()
+    main_dex1 = DexFile().parse(main_buf)
+    main_buf1 = main_dex1.to_bytes()
+    assert main_buf == main_buf1
