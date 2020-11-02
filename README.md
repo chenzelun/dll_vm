@@ -5,7 +5,7 @@
   + [x] don't parse some data struct.
   + [x] test parsing
   + [x] write to new dex file
-  + [ ] test my dex file by apktool
+  + [x] test my dex file by apktool
   + [ ] change AndroidManifest.xml
   + [ ] design a new format of data file
   + [ ] main shell step

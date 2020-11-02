@@ -36,3 +36,7 @@ def init_env():
 
 # TEST
 TEST_DEX_PATH = r'/Users/chenzelun/PycharmProjects/dll_vm/test/TestApp/app/release/app-release/classes.dex'
+
+NEW_DEX_PATH = r'/Users/chenzelun/PycharmProjects/dll_vm/test/new_dex'
+NEW_DEX_PATH_1 = NEW_DEX_PATH + os.path.sep + r'dex1.dex'
+NEW_DEX_PATH_2 = NEW_DEX_PATH + os.path.sep + r'dex2.dex'

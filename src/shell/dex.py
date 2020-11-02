@@ -1266,9 +1266,10 @@ class EncodedTypeAddrPair(Writeable):
     def ignore(buf: bytes, pr: Pointer):
         Leb128.pass_leb128(buf, pr, 2)
 
+    @Pointer.update_pointer
     def to_bytes(self, buf: bytearray, pr: Pointer):
-        buf.extend(Leb128.write_unsigned_leb128(self.type_idx, pr))
-        buf.extend(Leb128.write_unsigned_leb128(self.addr, pr))
+        buf.extend(Leb128.write_unsigned_leb128(self.type_idx))
+        buf.extend(Leb128.write_unsigned_leb128(self.addr))
 
     @Debugger.print_all_fields
     def __repr__(self):
@@ -1538,6 +1539,7 @@ class CodeItem(Writeable):
 
     @Pointer.aligned_4_with_zero
     @Pointer.update_offset
+    @Pointer.update_pointer
     def to_bytes(self, buf: bytearray, pr: Pointer):
         assert self.insns_size * 0x02 == len(self.insns)
         self.debug_info_off = self.debug_info.offset if self.debug_info else 0
@@ -1560,7 +1562,6 @@ class CodeItem(Writeable):
             #     t.to_bytes(buf, pr)
             # self.handlers.to_bytes(buf, pr)
             buf.extend(self.try_buf)
-            pr.add(len(self.try_buf))
 
     @Debugger.print_all_fields
     def __repr__(self):
@@ -1951,12 +1952,7 @@ class DexFile:
         self.header.to_bytes(index_buf, index_pr)
 
         self.pool_to_bytes_if_exist(MapListItemType.TYPE_STRING_DATA_ITEM, data_buf, data_pr)
-        self.pool_to_bytes_if_exist(MapListItemType.TYPE_STRING_ID_ITEM, index_buf, index_pr)
-        self.pool_to_bytes_if_exist(MapListItemType.TYPE_TYPE_ID_ITEM, index_buf, index_pr)
         self.pool_to_bytes_if_exist(MapListItemType.TYPE_TYPE_LIST_ITEM, data_buf, data_pr)
-        self.pool_to_bytes_if_exist(MapListItemType.TYPE_PROTO_ID_ITEM, index_buf, index_pr)
-        self.pool_to_bytes_if_exist(MapListItemType.TYPE_FIELD_ID_ITEM, index_buf, index_pr)
-        self.pool_to_bytes_if_exist(MapListItemType.TYPE_METHOD_ID_ITEM, index_buf, index_pr)
 
         self.pool_to_bytes_if_exist(MapListItemType.TYPE_ANNOTATION_ITEM, data_buf, data_pr)
         self.pool_to_bytes_if_exist(MapListItemType.TYPE_ANNOTATION_SET_ITEM, data_buf, data_pr)
@@ -1967,14 +1963,23 @@ class DexFile:
         self.pool_to_bytes_if_exist(MapListItemType.TYPE_DEBUG_INFO_ITEM, data_buf, data_pr)
         self.pool_to_bytes_if_exist(MapListItemType.TYPE_CODE_ITEM, data_buf, data_pr)
         self.pool_to_bytes_if_exist(MapListItemType.TYPE_CLASS_DATA_ITEM, data_buf, data_pr)
-        self.pool_to_bytes_if_exist(MapListItemType.TYPE_CLASS_DEF_ITEM, data_buf, data_pr)
+
+        self.pool_to_bytes_if_exist(MapListItemType.TYPE_STRING_ID_ITEM, index_buf, index_pr)
+        self.pool_to_bytes_if_exist(MapListItemType.TYPE_TYPE_ID_ITEM, index_buf, index_pr)
+        self.pool_to_bytes_if_exist(MapListItemType.TYPE_PROTO_ID_ITEM, index_buf, index_pr)
+        self.pool_to_bytes_if_exist(MapListItemType.TYPE_FIELD_ID_ITEM, index_buf, index_pr)
+        self.pool_to_bytes_if_exist(MapListItemType.TYPE_METHOD_ID_ITEM, index_buf, index_pr)
+        self.pool_to_bytes_if_exist(MapListItemType.TYPE_CLASS_DEF_ITEM, index_buf, index_pr)
 
         self.update_map_list()
         self.map_list.to_bytes(data_buf, data_pr)
         dex_buf = index_buf + data_buf
+        assert len(index_buf) == self.header.data_off
+
         self.update_header(dex_buf)
         self.update_signature(dex_buf)
         self.update_checksum(dex_buf)
+        assert len(dex_buf) == self.header.file_size
         return dex_buf
 
     def update_signature(self, dex_buf: bytearray):
@@ -2082,8 +2087,14 @@ class DexFile:
 
 if __name__ == '__main__':
     main_dex = DexFile.parse_file(env.TEST_DEX_PATH)
-    print("ok")
     main_buf = main_dex.to_bytes()
+
+    with open(env.NEW_DEX_PATH_1, 'wb') as writer:
+        writer.write(main_buf)
+
     main_dex1 = DexFile().parse(main_buf)
     main_buf1 = main_dex1.to_bytes()
+    with open(env.NEW_DEX_PATH_2, 'wb') as writer:
+        writer.write(main_buf1)
+
     assert main_buf == main_buf1
