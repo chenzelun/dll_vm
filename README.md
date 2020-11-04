@@ -6,9 +6,9 @@
   + [x] test parsing
   + [x] write to new dex file
   + [x] test my dex file by apktool
-  + [ ] change AndroidManifest.xml
-  + [ ] design a new format of data file
-  + [ ] main shell step
+  + [x] change AndroidManifest.xml
+  + [x] design a new format of data file
+  + [x] main shell step
   + [ ] main vm code about setup system
   + [ ] test repackaged App
   + [ ] change java method to native method
@@ -28,7 +28,13 @@
   
 
 ## git log
-    [2020-10-30]: 1.parse all data but no testing 
-                    2.TODO: don't parse some data struct
-    [2020-10-29]: add test App and vm App
-    [2020-10-29]: init master; parse dex file
+    [2020-11-04]:   1. TODO: test parsing
+                    2. TODO: write to new dex file
+                    3. TODO: test my dex file by apktool
+                    4. TODO: change AndroidManifest.xml
+                    5. TODO: design a new format of data file
+                    6. TODO: main shell step
+    [2020-10-30]:   1. parse all data but no testing 
+                    2. TODO: don't parse some data struct
+    [2020-10-29]:   add test App and vm App
+    [2020-10-29]:   init master; parse dex file

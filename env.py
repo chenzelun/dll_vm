@@ -1,42 +1,23 @@
-import logging
 import os
 
+from shell.common.utils import Log
+
 ROOT_PATH = os.path.abspath(os.path.curdir)
-LIB_ROOT = ROOT_PATH + os.path.sep + r'lib'
-LOG_ROOT = ROOT_PATH + os.path.sep + r'log'
-TMP_ROOT = ROOT_PATH + os.path.sep + r'tmp'
+LIB_ROOT = os.path.join(ROOT_PATH, r'lib')
+LOG_ROOT = os.path.join(ROOT_PATH, r'log')
+TMP_ROOT = os.path.join(ROOT_PATH, r'build')
+OUT_ROOT = os.path.join(ROOT_PATH, r'out')
+RES_ROOT = os.path.join(ROOT_PATH, r'res')
 
+TEST_ROOT = os.path.join(ROOT_PATH, r'test')
+TEST_APP_ROOT = os.path.join(TEST_ROOT, r'TestApp')
+VM_APP_ROOT = os.path.join(ROOT_PATH, r'src', r'vm')
 
-# config log
-def init_logging():
-    log_file_path = LOG_ROOT + os.path.sep + 'log.log'
-
-    file_handle = logging.FileHandler(log_file_path, mode='w')
-    file_handle.setLevel(logging.DEBUG)
-    file_handle.setFormatter(
-        logging.Formatter(
-            fmt=r'%(asctime)s - %(levelname)s - %(pathname)s[%(lineno)d]'
-                r' - pid: %(process)d, tid: %(thread)d - %(funcName)s: %(message)s'))
-
-    console_handle = logging.StreamHandler()
-    console_handle.setLevel(logging.DEBUG)
-    console_handle.setFormatter(
-        logging.Formatter(fmt=r'%(asctime)s - %(levelname)s - %(funcName)s[%(lineno)d]: %(message)s'))
-
-    logger = logging.getLogger()
-    logger.setLevel(logging.DEBUG)
-    logger.addHandler(file_handle)
-    logger.addHandler(console_handle)
+KEY_STORE_PATH = os.path.join(RES_ROOT,
+                              r'key_store',
+                              r'android_apk_key_store_123456_dll_654321')
 
 
 # init evn
 def init_env():
-    init_logging()
-
-
-# TEST
-TEST_DEX_PATH = r'/Users/chenzelun/PycharmProjects/dll_vm/test/TestApp/app/release/app-release/classes.dex'
-
-NEW_DEX_PATH = r'/Users/chenzelun/PycharmProjects/dll_vm/test/new_dex'
-NEW_DEX_PATH_1 = NEW_DEX_PATH + os.path.sep + r'dex1.dex'
-NEW_DEX_PATH_2 = NEW_DEX_PATH + os.path.sep + r'dex2.dex'
+    Log.init_logging()

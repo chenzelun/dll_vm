@@ -1,13 +1,16 @@
 import hashlib
+import logging
+import os
 import zlib
 from abc import ABCMeta, abstractmethod
 from enum import IntEnum, unique
-from functools import wraps
 from struct import unpack_from, pack
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Union
 
 import env
-from src.shell.utils import Debugger
+from shell.common.utils import Debugger, Pointer
+
+NO_INDEX = 0xffffffff
 
 
 @unique
@@ -29,7 +32,7 @@ class MapListItemType(IntEnum):
     TYPE_DEBUG_INFO_ITEM = 0x2003
     TYPE_ANNOTATION_ITEM = 0x2004
     TYPE_ENCODED_ARRAY_ITEM = 0x2005
-    TYPE_ANNOTATIONS_DIRECTORY_ITEM = 0x2006
+    TYPE_ANNOTATION_DIRECTORY_ITEM = 0x2006
 
 
 @unique
@@ -104,141 +107,6 @@ class Visibility(IntEnum):
     VISIBILITY_BUILD = 0x0
     VISIBILITY_RUNTIME = 0x1
     VISIBILITY_SYSTEM = 0x2
-
-
-class ReflectHelper:
-    @staticmethod
-    def get_first_var_by_type(t: type, *args, **kwargs):
-        for a in args:
-            if type(a) == t:
-                dest = a
-                break
-        else:
-            for k in kwargs:
-                if type(kwargs[k]) == t:
-                    dest = k
-                    break
-            else:
-                raise RuntimeWarning("Can't find the var which type is " + t.__name__)
-        return dest
-
-    @staticmethod
-    def get_var_by_index(idx: int, *args, **kwargs):
-        if idx < len(args):
-            return args[idx]
-        idx -= len(args)
-        if idx < len(kwargs):
-            return kwargs[list(kwargs.keys())[idx]]
-        else:
-            raise RuntimeWarning("Can't find the var which index is " + str(idx))
-
-
-class Pointer:
-    def __init__(self, start: int, step: int = 1):
-        assert start >= 0
-        assert step >= 0
-        self.cur = start
-        self.step = step
-
-    def __repr__(self):
-        return str(self.__dict__)
-
-    @staticmethod
-    def tmp_reset_step(step: int):
-        def func_wrapper(func):
-            @wraps(func)
-            def wrapper(*args, **kwargs):
-                pr: Pointer = ReflectHelper.get_first_var_by_type(Pointer, *args, **kwargs)
-                old_step = pr.step
-                pr.step = step
-                ret = func(*args, **kwargs)
-                pr.step = old_step
-                return ret
-
-            return wrapper
-
-        return func_wrapper
-
-    @staticmethod
-    def aligned_4_with_zero(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            pr: Pointer = ReflectHelper.get_first_var_by_type(Pointer, *args, **kwargs)
-            buf: bytearray = ReflectHelper.get_first_var_by_type(bytearray, *args, **kwargs)
-            old_len = pr.cur
-            pr.aligned(0x04)
-            while old_len < pr.cur:
-                buf.append(0)
-                old_len += 1
-
-            return func(*args, **kwargs)
-
-        return wrapper
-
-    @staticmethod
-    def update_offset(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            pr: Pointer = ReflectHelper.get_first_var_by_type(Pointer, *args, **kwargs)
-            obj: Writeable = ReflectHelper.get_var_by_index(0, *args, **kwargs)
-            obj.offset = pr.cur
-            return func(*args, **kwargs)
-
-        return wrapper
-
-    @staticmethod
-    def update_pointer(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            pr: Pointer = ReflectHelper.get_first_var_by_type(Pointer, *args, **kwargs)
-            buf: bytearray = ReflectHelper.get_first_var_by_type(bytearray, *args, **kwargs)
-            old_len = len(buf)
-            ret = func(*args, **kwargs)
-            new_len = len(buf)
-            pr.add(new_len - old_len)
-            return ret
-
-        return wrapper
-
-    @property
-    def cur_and_increase(self) -> int:
-        old = self.cur
-        self.cur += self.step
-        return old
-
-    def get_and_add(self, offset: int) -> int:
-        assert offset >= 0
-        old_val = self.cur
-        self.cur += offset
-        return old_val
-
-    def add(self, offset: int) -> int:
-        assert offset >= 0
-        self.cur += offset
-        return self.cur
-
-    @staticmethod
-    def ignore_data(value_type, buf: bytes, pr) -> bytes:
-        start = pr.cur
-        value_type.ignore(buf, pr)
-        end = pr.cur
-        return buf[start:end]
-
-    def aligned(self, aligned_len: int, now_len: int = -1):
-        """
-        change pr:Pointer by aligned_len
-        :param aligned_len: length of aligned, only the power of 2 and the min value is 2
-        :param now_len: dest length (default: pr.cur)
-        :return: None
-        """
-        assert aligned_len >= 2 and (aligned_len & (aligned_len - 1) == 0)
-        if now_len == -1:
-            now_len = self.cur
-        if now_len & (aligned_len - 1) != 0:
-            offset = aligned_len - (now_len & (aligned_len - 1))
-        else:
-            offset = 0
-        self.add(offset)
 
 
 class Leb128:
@@ -388,49 +256,58 @@ class MapItem(Writeable):
     def __repr__(self):
         pass
 
-    def __len__(self):
+    def __len__(self) -> int:
         return 0x0c
 
 
-class Pool(Writeable):
-    index_pool_type = (
-        MapListItemType.TYPE_STRING_ID_ITEM,
-        MapListItemType.TYPE_TYPE_ID_ITEM,
-        MapListItemType.TYPE_PROTO_ID_ITEM,
-        MapListItemType.TYPE_FIELD_ID_ITEM,
-        MapListItemType.TYPE_METHOD_ID_ITEM,
-        MapListItemType.TYPE_CLASS_DEF_ITEM,
-    )
-    offset_pool_type = (
-        MapListItemType.TYPE_TYPE_LIST_ITEM,
-        MapListItemType.TYPE_ANNOTATION_SET_REF_LIST,
-        MapListItemType.TYPE_ANNOTATION_SET_ITEM,
-        MapListItemType.TYPE_CLASS_DATA_ITEM,
-        MapListItemType.TYPE_CODE_ITEM,
-        MapListItemType.TYPE_STRING_DATA_ITEM,
-        MapListItemType.TYPE_DEBUG_INFO_ITEM,
-        MapListItemType.TYPE_ANNOTATION_ITEM,
-        MapListItemType.TYPE_ENCODED_ARRAY_ITEM,
-        MapListItemType.TYPE_ANNOTATIONS_DIRECTORY_ITEM,
-    )
+INDEX_POOL_TYPE = (
+    MapListItemType.TYPE_STRING_ID_ITEM,
+    MapListItemType.TYPE_TYPE_ID_ITEM,
+    MapListItemType.TYPE_PROTO_ID_ITEM,
+    MapListItemType.TYPE_FIELD_ID_ITEM,
+    MapListItemType.TYPE_METHOD_ID_ITEM,
+    MapListItemType.TYPE_CLASS_DEF_ITEM,
+)
+OFFSET_POOL_TYPE = (
+    MapListItemType.TYPE_TYPE_LIST_ITEM,
+    MapListItemType.TYPE_ANNOTATION_SET_REF_LIST,
+    MapListItemType.TYPE_ANNOTATION_SET_ITEM,
+    MapListItemType.TYPE_CLASS_DATA_ITEM,
+    MapListItemType.TYPE_CODE_ITEM,
+    MapListItemType.TYPE_STRING_DATA_ITEM,
+    MapListItemType.TYPE_DEBUG_INFO_ITEM,
+    MapListItemType.TYPE_ANNOTATION_ITEM,
+    MapListItemType.TYPE_ENCODED_ARRAY_ITEM,
+    MapListItemType.TYPE_ANNOTATION_DIRECTORY_ITEM,
+)
 
+
+class Pool(Writeable):
     def __init__(self, map_item: MapItem, val_type: type):
         super().__init__()
         self.__order: List[int] = []
-        self.__map: Dict[int, Writeable] = {}
+        self.__map: Dict[int,
+                         Union[Writeable,
+                               StringIdItem,
+                               TypeIdItem]] = {}
         self.__map_item = map_item
         self.__val_type = val_type
+
+        self.__iter_index: int = 0
+
+    def get_item(self, idx: int):
+        return self.__map[self.__order[idx]]
 
     def parse(self, buf: bytes, pr: Pointer):
         for idx in range(self.__map_item.size):
             item: Writeable = self.__val_type().parse(buf, pr)
-            key = idx if self.__map_item.type in self.index_pool_type else item.offset
+            key = idx if self.__map_item.type in INDEX_POOL_TYPE else item.offset
             self.__map[key] = item
             self.__order.append(key)
         return self
 
     def add(self, item: Writeable):
-        key = len(self.__order) if self.__map_item.type in self.index_pool_type else item.offset
+        key = len(self.__order) if self.__map_item.type in INDEX_POOL_TYPE else item.offset
         self.__map[key] = item
         self.__order.append(key)
 
@@ -450,8 +327,19 @@ class Pool(Writeable):
     def __repr__(self):
         pass
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.__map)
+
+    def __iter__(self):
+        self.__iter_index = 0
+        return self
+
+    def __next__(self):
+        if self.__iter_index >= len(self.__order):
+            raise StopIteration()
+        ret = self[self.__order[self.__iter_index]]
+        self.__iter_index += 1
+        return ret
 
 
 class Header(Writeable):
@@ -541,7 +429,7 @@ class Header(Writeable):
     def __repr__(self):
         pass
 
-    def __len__(self):
+    def __len__(self) -> int:
         return 0x70
 
 
@@ -557,7 +445,7 @@ class StringDataItem(Writeable):
         start = pr.cur
         while buf[pr.get_and_add(1)]:
             pass
-        self.data = buf[start:pr.cur]
+        self.data = buf[start:pr.cur - 1]
         return self
 
     @Pointer.update_offset
@@ -565,6 +453,7 @@ class StringDataItem(Writeable):
     def to_bytes(self, buf: bytearray, pr: Pointer):
         buf.extend(Leb128.write_unsigned_leb128(self.size))
         buf.extend(self.data)
+        buf.append(0x00)
 
     @Debugger.print_all_fields
     def __repr__(self):
@@ -580,7 +469,7 @@ class StringIdItem(Writeable):
     def parse(self, buf: bytes, pr: Pointer):
         self.data_offset = unpack_from('<I', buf, pr.get_and_add(len(self)))[0]
         assert self.data_offset
-        self.data = MapList.get_and_add(
+        self.data = MapList.get_item_and_add(
             MapListItemType.TYPE_STRING_DATA_ITEM,
             self.data_offset, StringDataItem, buf
         )
@@ -596,7 +485,7 @@ class StringIdItem(Writeable):
     def __repr__(self):
         pass
 
-    def __len__(self):
+    def __len__(self) -> int:
         return 0x04
 
 
@@ -617,7 +506,7 @@ class TypeIdItem(Writeable):
     def __repr__(self):
         pass
 
-    def __len__(self):
+    def __len__(self) -> int:
         return 0x04
 
 
@@ -656,7 +545,7 @@ class ProtoIdItem(Writeable):
     def parse(self, buf: bytes, pr: Pointer):
         self.shorty_id, self.return_type_idx, self.parameters_off = unpack_from('<3I', buf, pr.get_and_add(len(self)))
         if self.parameters_off:
-            self.parameters = MapList.get_and_add(
+            self.parameters = MapList.get_item_and_add(
                 MapListItemType.TYPE_TYPE_LIST_ITEM,
                 self.parameters_off, TypeListItem, buf
             )
@@ -672,7 +561,7 @@ class ProtoIdItem(Writeable):
     def __repr__(self):
         pass
 
-    def __len__(self):
+    def __len__(self) -> int:
         return 0x0c
 
 
@@ -695,7 +584,7 @@ class FieldIdItem(Writeable):
     def __repr__(self):
         pass
 
-    def __len__(self):
+    def __len__(self) -> int:
         return 0x08
 
 
@@ -718,7 +607,7 @@ class MethodIdItem(Writeable):
     def __repr__(self):
         pass
 
-    def __len__(self):
+    def __len__(self) -> int:
         return 0x08
 
 
@@ -756,7 +645,7 @@ class EncodedValue(Writeable):
         super().__init__()
         self.value_type: EncodedValueType = EncodedValueType.VALUE_NULL
         self.value_arg: int = -1
-        self.data: Optional[EncodedArray, EncodedAnnotation, int] = None
+        self.data: Union[EncodedArray, EncodedAnnotation, int, None] = None
 
     def parse(self, buf: bytes, pr: Pointer):
         value = buf[pr.get_and_add(0x01)]
@@ -784,7 +673,7 @@ class EncodedValue(Writeable):
                                  EncodedValueType.VALUE_BOOLEAN):
             pass
         else:
-            raise RuntimeWarning('Unknown type for encoded value ' + hex(self.value_type.value))
+            raise RuntimeWarning('Unknown type for encoded value ' + hex(self.value_type.val))
         return self
 
     @staticmethod
@@ -814,7 +703,7 @@ class EncodedValue(Writeable):
                             EncodedValueType.VALUE_BOOLEAN):
             pass
         else:
-            raise RuntimeWarning('Unknown type for encoded value ' + hex(value_type.value))
+            raise RuntimeWarning('Unknown type for encoded value ' + hex(value_type.val))
 
     def to_bytes(self, buf: bytearray, pr: Pointer):
         buf.append((self.value_type.value & 0x1f) | ((self.value_arg & 0x07) << 5))
@@ -977,7 +866,7 @@ class AnnotationOff(Writeable):
     def parse(self, buf: bytes, pr: Pointer):
         self.annotation_off = unpack_from('<I', buf, pr.get_and_add(len(self)))[0]
         if self.annotation_off:
-            self.annotation = MapList.get_and_add(
+            self.annotation = MapList.get_item_and_add(
                 MapListItemType.TYPE_ANNOTATION_ITEM,
                 self.annotation_off, AnnotationItem, buf
             )
@@ -992,7 +881,7 @@ class AnnotationOff(Writeable):
     def __repr__(self):
         pass
 
-    def __len__(self):
+    def __len__(self) -> int:
         return 0x04
 
 
@@ -1034,7 +923,7 @@ class FieldAnnotation(Writeable):
     def parse(self, buf: bytes, pr: Pointer):
         self.field_idx, self.annotations_off = unpack_from('<2I', buf, pr.get_and_add(len(self)))
         if self.annotations_off:
-            self.annotations = MapList.get_and_add(
+            self.annotations = MapList.get_item_and_add(
                 MapListItemType.TYPE_ANNOTATION_SET_ITEM,
                 self.annotations_off, AnnotationSetItem, buf
             )
@@ -1049,7 +938,7 @@ class FieldAnnotation(Writeable):
     def __repr__(self):
         pass
 
-    def __len__(self):
+    def __len__(self) -> int:
         return 0x08
 
 
@@ -1064,7 +953,7 @@ class MethodAnnotation(Writeable):
     def parse(self, buf: bytes, pr: Pointer):
         self.method_idx, self.annotations_off = unpack_from('<2I', buf, pr.get_and_add(len(self)))
         if self.annotations_off:
-            self.annotations = MapList.get_and_add(
+            self.annotations = MapList.get_item_and_add(
                 MapListItemType.TYPE_ANNOTATION_SET_ITEM,
                 self.annotations_off, AnnotationSetItem, buf
             )
@@ -1079,7 +968,7 @@ class MethodAnnotation(Writeable):
     def __repr__(self):
         pass
 
-    def __len__(self):
+    def __len__(self) -> int:
         return 0x08
 
 
@@ -1093,7 +982,7 @@ class AnnotationSetRef(Writeable):
     def parse(self, buf: bytes, pr: Pointer):
         self.annotations_off = unpack_from('<I', buf, pr.get_and_add(len(self)))[0]
         if self.annotations_off:
-            self.annotations = MapList.get_and_add(
+            self.annotations = MapList.get_item_and_add(
                 MapListItemType.TYPE_ANNOTATION_SET_ITEM,
                 self.annotations_off, AnnotationSetItem, buf
             )
@@ -1108,7 +997,7 @@ class AnnotationSetRef(Writeable):
     def __repr__(self):
         pass
 
-    def __len__(self):
+    def __len__(self) -> int:
         return 0x04
 
 
@@ -1150,7 +1039,7 @@ class ParameterAnnotation(Writeable):
     def parse(self, buf: bytes, pr: Pointer):
         self.method_idx, self.annotations_off = unpack_from('<2I', buf, pr.get_and_add(len(self)))
         if self.annotations_off:
-            self.annotations = MapList.get_and_add(
+            self.annotations = MapList.get_item_and_add(
                 MapListItemType.TYPE_ANNOTATION_SET_REF_LIST,
                 self.annotations_off, AnnotationSetRefListItem, buf
             )
@@ -1165,7 +1054,7 @@ class ParameterAnnotation(Writeable):
     def __repr__(self):
         pass
 
-    def __len__(self):
+    def __len__(self) -> int:
         return 0x08
 
 
@@ -1195,7 +1084,7 @@ class AnnotationsDirectoryItem(Writeable):
         for _ in range(self.parameters_size):
             self.parameter_annotations.append(ParameterAnnotation().parse(buf, pr))
         if self.class_annotations_off:
-            self.class_annotations = MapList.get_and_add(
+            self.class_annotations = MapList.get_item_and_add(
                 MapListItemType.TYPE_ANNOTATION_SET_ITEM,
                 self.class_annotations_off, AnnotationSetItem, buf
             )
@@ -1247,7 +1136,7 @@ class TryBlock(Writeable):
     def __repr__(self):
         pass
 
-    def __len__(self):
+    def __len__(self) -> int:
         return 0x08
 
 
@@ -1531,7 +1420,7 @@ class CodeItem(Writeable):
             self.try_buf = buf[buf_start:buf_end]
 
         if self.debug_info_off:
-            self.debug_info = MapList.get_and_add(
+            self.debug_info = MapList.get_item_and_add(
                 MapListItemType.TYPE_DEBUG_INFO_ITEM,
                 self.debug_info_off, DebugInfoItem, buf
             )
@@ -1583,7 +1472,7 @@ class EncodedMethod(Writeable):
         self.access_flags = Leb128.read_unsigned_leb128(buf, pr)
         self.code_off = Leb128.read_unsigned_leb128(buf, pr)
         if self.code_off:
-            self.code = MapList.get_and_add(
+            self.code = MapList.get_item_and_add(
                 MapListItemType.TYPE_CODE_ITEM,
                 self.code_off, CodeItem, buf
             )
@@ -1758,6 +1647,8 @@ class EncodedArrayItem(Writeable):
 class ClassDefItem(Writeable):
     def __init__(self):
         super().__init__()
+        self.log = logging.getLogger(ClassDefItem.__name__)
+
         self.class_id: int = -1
         self.access_flag: int = 0
         self.superclass_idx: int = -1
@@ -1782,26 +1673,31 @@ class ClassDefItem(Writeable):
         self.class_data_off, \
         self.static_values_off = unpack_from('<8I', buf, pr.get_and_add(len(self)))
         if self.interfaces_off:
-            self.interfaces = MapList.get_and_add(
+            self.interfaces = MapList.get_item_and_add(
                 MapListItemType.TYPE_TYPE_LIST_ITEM,
                 self.interfaces_off, TypeListItem, buf
             )
         if self.annotations_off:
-            self.annotations = MapList.get_and_add(
-                MapListItemType.TYPE_ANNOTATIONS_DIRECTORY_ITEM,
+            self.annotations = MapList.get_item_and_add(
+                MapListItemType.TYPE_ANNOTATION_DIRECTORY_ITEM,
                 self.annotations_off, AnnotationsDirectoryItem, buf
             )
         if self.class_data_off:
-            self.class_data = MapList.get_and_add(
+            self.class_data = MapList.get_item_and_add(
                 MapListItemType.TYPE_CLASS_DATA_ITEM,
                 self.class_data_off, ClassDataItem, buf
             )
         if self.static_values_off:
-            self.static_values = MapList.get_and_add(
+            self.static_values = MapList.get_item_and_add(
                 MapListItemType.TYPE_ENCODED_ARRAY_ITEM,
                 self.static_values_off, EncodedArrayItem, buf
             )
 
+        self.log.debug(r'parse class def: ' + str(
+            MapList.instance().map[MapListItemType.TYPE_STRING_ID_ITEM].data.get_item(
+                MapList.instance().map[MapListItemType.TYPE_TYPE_ID_ITEM].data.get_item(
+                    self.class_id).descriptor_id
+            ).data.data, encoding='ASCII'))
         return self
 
     @Pointer.update_pointer
@@ -1824,7 +1720,7 @@ class ClassDefItem(Writeable):
     def __repr__(self):
         pass
 
-    def __len__(self):
+    def __len__(self) -> int:
         return 0x20
 
 
@@ -1864,7 +1760,7 @@ class MapList(Writeable):
             self.map[item_type].to_bytes(buf, pr)
 
     @staticmethod
-    def get_and_add(pool_type: MapListItemType, key: int, value_type: type, buf: bytes):
+    def get_item_and_add(pool_type: MapListItemType, key: int, value_type: type, buf: bytes):
         data = MapList.instance().map[pool_type].data
         assert data is not None
         if key in data:
@@ -1902,7 +1798,7 @@ class MapList(Writeable):
         self.__init_data_pool(MapListItemType.TYPE_ANNOTATION_SET_REF_LIST, AnnotationSetRefListItem)
         self.__init_data_pool(MapListItemType.TYPE_CODE_ITEM, CodeItem)
         self.__init_data_pool(MapListItemType.TYPE_DEBUG_INFO_ITEM, DebugInfoItem)
-        self.__init_data_pool(MapListItemType.TYPE_ANNOTATIONS_DIRECTORY_ITEM, AnnotationsDirectoryItem)
+        self.__init_data_pool(MapListItemType.TYPE_ANNOTATION_DIRECTORY_ITEM, AnnotationsDirectoryItem)
         self.__init_data_pool(MapListItemType.TYPE_ENCODED_ARRAY_ITEM, EncodedArrayItem)
 
 
@@ -1911,21 +1807,30 @@ class DexFile:
         super().__init__()
         self.header: Optional[Header] = None
         self.map_list: Optional[MapList] = None
+        self.log = logging.getLogger(DexFile.__name__)
 
     def parse(self, buf: bytes):
         self.header = Header().parse(buf, Pointer(0))
+        self.log.debug(r'parse header')
         self.map_list = MapList().parse(buf, Pointer(self.header.map_off))
+        self.log.debug(r'parse map list')
 
         self.__parse_pool(MapListItemType.TYPE_STRING_ID_ITEM, buf)
+        self.log.debug(r'parse string id')
         self.__parse_pool(MapListItemType.TYPE_TYPE_ID_ITEM, buf)
+        self.log.debug(r'parse type id')
         self.__parse_pool(MapListItemType.TYPE_PROTO_ID_ITEM, buf)
+        self.log.debug(r'parse proto id')
         self.__parse_pool(MapListItemType.TYPE_FIELD_ID_ITEM, buf)
+        self.log.debug(r'parse field id')
         self.__parse_pool(MapListItemType.TYPE_METHOD_ID_ITEM, buf)
+        self.log.debug(r'parse method id')
         self.__parse_pool(MapListItemType.TYPE_CLASS_DEF_ITEM, buf)
+        self.log.debug(r'parse class def')
         return self
 
     def __parse_pool(self, item_type: MapListItemType, buf: bytes):
-        assert item_type in Pool.index_pool_type
+        assert item_type in INDEX_POOL_TYPE
         map_item = self.map_list.map[item_type]
         map_item.data.parse(buf, Pointer(map_item.data_offset))
 
@@ -1950,35 +1855,56 @@ class DexFile:
         # update header's data_off
         self.header.data_off = data_off
         self.header.to_bytes(index_buf, index_pr)
+        self.log.debug(r'write header')
 
         self.pool_to_bytes_if_exist(MapListItemType.TYPE_STRING_DATA_ITEM, data_buf, data_pr)
+        self.log.debug(r'write string data')
         self.pool_to_bytes_if_exist(MapListItemType.TYPE_TYPE_LIST_ITEM, data_buf, data_pr)
+        self.log.debug(r'write type list')
 
         self.pool_to_bytes_if_exist(MapListItemType.TYPE_ANNOTATION_ITEM, data_buf, data_pr)
+        self.log.debug(r'write annotation')
         self.pool_to_bytes_if_exist(MapListItemType.TYPE_ANNOTATION_SET_ITEM, data_buf, data_pr)
+        self.log.debug(r'write annotation set')
         self.pool_to_bytes_if_exist(MapListItemType.TYPE_ANNOTATION_SET_REF_LIST, data_buf, data_pr)
-        self.pool_to_bytes_if_exist(MapListItemType.TYPE_ANNOTATIONS_DIRECTORY_ITEM, data_buf, data_pr)
+        self.log.debug(r'write annotation set ref list')
+        self.pool_to_bytes_if_exist(MapListItemType.TYPE_ANNOTATION_DIRECTORY_ITEM, data_buf, data_pr)
+        self.log.debug(r'write annotation directory')
 
         self.pool_to_bytes_if_exist(MapListItemType.TYPE_ENCODED_ARRAY_ITEM, data_buf, data_pr)
+        self.log.debug(r'write encoded array')
         self.pool_to_bytes_if_exist(MapListItemType.TYPE_DEBUG_INFO_ITEM, data_buf, data_pr)
+        self.log.debug(r'write debug info')
         self.pool_to_bytes_if_exist(MapListItemType.TYPE_CODE_ITEM, data_buf, data_pr)
+        self.log.debug(r'write code')
         self.pool_to_bytes_if_exist(MapListItemType.TYPE_CLASS_DATA_ITEM, data_buf, data_pr)
+        self.log.debug(r'write class data')
 
         self.pool_to_bytes_if_exist(MapListItemType.TYPE_STRING_ID_ITEM, index_buf, index_pr)
+        self.log.debug(r'write string id')
         self.pool_to_bytes_if_exist(MapListItemType.TYPE_TYPE_ID_ITEM, index_buf, index_pr)
+        self.log.debug(r'write type id')
         self.pool_to_bytes_if_exist(MapListItemType.TYPE_PROTO_ID_ITEM, index_buf, index_pr)
+        self.log.debug(r'write proto id')
         self.pool_to_bytes_if_exist(MapListItemType.TYPE_FIELD_ID_ITEM, index_buf, index_pr)
+        self.log.debug(r'write field id')
         self.pool_to_bytes_if_exist(MapListItemType.TYPE_METHOD_ID_ITEM, index_buf, index_pr)
+        self.log.debug(r'write method id')
         self.pool_to_bytes_if_exist(MapListItemType.TYPE_CLASS_DEF_ITEM, index_buf, index_pr)
+        self.log.debug(r'write class def')
 
         self.update_map_list()
         self.map_list.to_bytes(data_buf, data_pr)
+        self.log.debug(r'write map list')
         dex_buf = index_buf + data_buf
         assert len(index_buf) == self.header.data_off
 
         self.update_header(dex_buf)
+        self.log.debug(r'update header')
         self.update_signature(dex_buf)
+        self.log.debug(r'update signature')
         self.update_checksum(dex_buf)
+        self.log.debug(r'update checksum')
         assert len(dex_buf) == self.header.file_size
         return dex_buf
 
@@ -2084,17 +2010,32 @@ class DexFile:
     def __repr__(self):
         pass
 
+    def get_string_by_idx(self, idx: int) -> str:
+        string_id_pool = self.map_list.map[MapListItemType.TYPE_STRING_ID_ITEM].data
+        return str(string_id_pool[idx].data.data, encoding='ASCII')
+
+    def get_type_name_by_idx(self, idx: int) -> str:
+        type_id_pool = self.map_list.map[MapListItemType.TYPE_TYPE_ID_ITEM].data
+        return self.get_string_by_idx(type_id_pool[idx].descriptor_id)
+
 
 if __name__ == '__main__':
-    main_dex = DexFile.parse_file(env.TEST_DEX_PATH)
+    # TEST
+    TEST_DEX_PATH = r'/Users/chenzelun/PycharmProjects/dll_vm/test/TestApp/app/release/app-release/classes.dex'
+
+    NEW_DEX_PATH = os.path.join(env.TEST_ROOT, 'new_dex')
+    NEW_DEX_PATH_1 = os.path.join(NEW_DEX_PATH, r'dex1.dex')
+    NEW_DEX_PATH_2 = os.path.join(NEW_DEX_PATH, r'dex2.dex')
+
+    main_dex = DexFile.parse_file(TEST_DEX_PATH)
     main_buf = main_dex.to_bytes()
 
-    with open(env.NEW_DEX_PATH_1, 'wb') as writer:
+    with open(NEW_DEX_PATH_1, 'wb') as writer:
         writer.write(main_buf)
 
     main_dex1 = DexFile().parse(main_buf)
     main_buf1 = main_dex1.to_bytes()
-    with open(env.NEW_DEX_PATH_2, 'wb') as writer:
+    with open(NEW_DEX_PATH_2, 'wb') as writer:
         writer.write(main_buf1)
 
     assert main_buf == main_buf1
