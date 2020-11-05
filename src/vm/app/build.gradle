@@ -15,7 +15,8 @@ android {
 
         externalNativeBuild {
             cmake {
-                cppFlags ""
+                cppFlags "-std=c++11 -fexceptions -frtti"
+                abiFilters "armeabi-v7a", "arm64-v8a"
             }
         }
     }
@@ -39,5 +40,5 @@ android {
 }
 
 dependencies {
-
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
 }

@@ -22,7 +22,9 @@ add_library( # Sets the name of the library.
 
         # Provides a relative path to your source file(s).
         vm.cpp
-        Util.cpp)
+        common/Util.cpp
+        common/VmDataFile.cpp
+        common/VmContext.cpp)
 
 
 # include headers
@@ -31,6 +33,17 @@ target_include_directories(
         vm
         PRIVATE
         ${CMAKE_SOURCE_DIR}/include)
+
+
+# add the third-lib
+
+add_library(AK SHARED IMPORTED)
+
+set_target_properties(
+        AK
+        PROPERTIES IMPORTED_LOCATION
+
+        ${CMAKE_SOURCE_DIR}/../jniLibs/${CMAKE_ANDROID_ARCH_ABI}/libAK.so)
 
 
 
@@ -53,6 +66,8 @@ find_library( # Sets the name of the path variable.
 
 target_link_libraries( # Specifies the target library.
         vm
+        AK
+        android
 
         # Links the target library to the log library
         # included in the NDK.

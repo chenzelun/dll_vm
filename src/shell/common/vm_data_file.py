@@ -36,12 +36,12 @@ class VmHeader:
 
 @unique
 class VmDataType(IntEnum):
-    # uint8
+    # uint32
     TYPE_KEY_VALUE = 1
     TYPE_FILE = 2
 
 
-# len: 1+4
+# len: 4+4
 class VmIndex(Writeable):
     def __init__(self, data_type: VmDataType, data=None):
         super().__init__()
@@ -55,7 +55,7 @@ class VmIndex(Writeable):
     def to_bytes(self, buf: bytearray, pr: Pointer):
         assert self.data
         self.data_off = self.data.offset
-        buf.extend(pack('<BI', self.type.value, self.data_off))
+        buf.extend(pack('<2I', self.type.value, self.data_off))
 
     @Debugger.print_all_fields
     def __repr__(self):
@@ -73,6 +73,7 @@ class VmString(Writeable):
         data_bytes = bytes(self.data, encoding='ASCII')
         self.data_size = len(data_bytes) + 1
         buf.extend(pack('<I', self.data_size))
+        buf.extend(data_bytes)
         buf.append(0)
 
     @Debugger.print_all_fields

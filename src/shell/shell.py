@@ -28,6 +28,7 @@ class Shell:
         self.dest_apk_path = os.path.join(env.OUT_ROOT, self.dest_apk_name)
 
         self.vm_data_file = VmDataFile()
+        self.vm_data_file_path = os.path.join(self.dest_assets_path, r'vm_data.bin')
 
     @Log.log_function
     def shell(self):
@@ -185,6 +186,5 @@ class Shell:
 
     @Log.log_function
     def build_vm_data(self):
-        vm_data_file_path = os.path.join(self.dest_assets_path, r'vm_data.bin')
-        with open(vm_data_file_path, 'wb') as w:
+        with open(self.vm_data_file_path, 'wb') as w:
             w.write(self.vm_data_file.to_bytes())

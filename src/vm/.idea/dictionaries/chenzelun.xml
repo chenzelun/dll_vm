@@ -2,6 +2,14 @@
   <dictionary name="chenzelun">
     <words>
       <w>dalunlun</w>
+      <w>landroid</w>
+      <w>ldalvik</w>
+      <w>ljava</w>
+      <w>logd</w>
+      <w>odex</w>
+      <w>vmconstant</w>
+      <w>vmcontext</w>
+      <w>vmdatafile</w>
     </words>
   </dictionary>
 </component>
