@@ -67,7 +67,7 @@ bool VmDataFile::findValByKey(const std::string &key, VmKeyValueData &retVal) co
 }
 
 bool VmDataFile::findFileByName(const std::string &key, VmFileData &retVal) const {
-    for(int offset=0; offset< this->header->index_size; offset++){
+    for (int offset = 0; offset < this->header->index_size; offset++) {
         if (this->index[offset].type != VmDataType::TYPE_FILE) {
             continue;
         }

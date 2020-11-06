@@ -9,6 +9,8 @@
 
 struct VM_CONFIG {
     RD_STR VM_DATA_FILE_NAME = "vm_data.bin";
+    RD_STR DEST_APP_DEX_FILE_NAME = "classes.dex";
+    RD_STR DEST_APP_APPLICATION_NAME = "application_name";
 
     // runtime path
     RD_STR RUNTIME_LIB_PATH = "/lib";
@@ -55,6 +57,14 @@ struct VM_REFLECT {
                      "getClassLoader",
                      "()Ljava/lang/ClassLoader;");
 
+    DEFINE_NAME_SIGN(MakeApplication,
+                     "makeApplication",
+                     "(ZLandroid/app/Instrumentation;)Landroid/app/Application;");
+
+    DEFINE_NAME_SIGN(Application_onCreate,
+                     "onCreate",
+                     "()V");
+
     DEFINE_NAME_SIGN(DexClassLoader_PathList,
                      "pathList",
                      "Ldalvik/system/DexPathList;");
@@ -71,6 +81,92 @@ struct VM_REFLECT {
                      "<init>",
                      "(Ljava/io/File;)V");
 
+    DEFINE_NAME_SIGN(DexElements,
+                     "dexElements",
+                     "[Ldalvik/system/DexPathList$Element;");
+
+    DEFINE_NAME_SIGN(ByteBuffer_wrap,
+                     "wrap",
+                     "([B)Ljava/nio/ByteBuffer;");
+
+    DEFINE_NAME_SIGN(DexFile_init,
+                     "<init>",
+                     "(Ljava/nio/ByteBuffer;)V");
+
+    DEFINE_NAME_SIGN(DexFile_mCookie,
+                     "mCookie",
+                     "Ljava/lang/Object;");
+
+    DEFINE_NAME_SIGN(DexPathList_Element_init,
+                     "<init>",
+                     "(Ljava/io/File;ZLjava/io/File;Ldalvik/system/DexFile;)V");
+
+    DEFINE_NAME_SIGN(ActicityThread_mBoundApplication,
+                     "mBoundApplication",
+                     "Landroid/app/ActivityThread$AppBindData;");
+
+    DEFINE_NAME_SIGN(AppBindData_info,
+                     "info",
+                     "Landroid/app/LoadedApk;");
+
+    DEFINE_NAME_SIGN(LoadedApk_mApplication,
+                     "mApplication",
+                     "Landroid/app/Application;");
+
+    DEFINE_NAME_SIGN(ActivityThread_mInitialApplication,
+                     "mInitialApplication",
+                     "Landroid/app/Application;");
+
+    DEFINE_NAME_SIGN(ActivityThread_mAllApplications,
+                     "mAllApplications",
+                     "Ljava/util/ArrayList;");
+
+    DEFINE_NAME_SIGN(ArrayList_remove,
+                     "remove",
+                     "(Ljava/lang/Object;)Z");
+
+    DEFINE_NAME_SIGN(LoadedApk_mApplicationInfo,
+                     "mApplicationInfo",
+                     "Landroid/content/pm/ApplicationInfo;");
+
+    DEFINE_NAME_SIGN(ApplicationInfo_className,
+                     "className",
+                     "Ljava/lang/String;");
+
+    DEFINE_NAME_SIGN(AppBindData_appInfo,
+                     "appInfo",
+                     "Landroid/content/pm/ApplicationInfo;");
+
+    DEFINE_NAME_SIGN(ActivityThread_mProviderMap,
+                     "mProviderMap",
+                     "Landroid/util/ArrayMap;");
+
+    DEFINE_NAME_SIGN(ArrayMap_values,
+                     "values",
+                     "()Ljava/util/Collection;");
+
+    DEFINE_NAME_SIGN(Collection_iterator,
+                     "iterator",
+                     "()Ljava/util/Iterator;");
+
+    DEFINE_NAME_SIGN(Iterator_hasNext,
+                     "hasNext",
+                     "()Z");
+
+    DEFINE_NAME_SIGN(Iterator_next,
+                     "next",
+                     "()Ljava/lang/Object;");
+
+    DEFINE_NAME_SIGN(ProviderClientRecord_mLocalProvider,
+                     "mLocalProvider",
+                     "Landroid/content/ContentProvider;");
+
+    DEFINE_NAME_SIGN(ContentProvider_mContext,
+                     "mContext",
+                     "Landroid/content/Context;");
+
+
+
 
 
     DEFINE_CLASS_NAME_SIGN(ContextWrapper, "android/content/ContextWrapper");
@@ -79,6 +175,16 @@ struct VM_REFLECT {
     DEFINE_CLASS_NAME_SIGN(NativeLibraryElement,
                            "dalvik/system/DexPathList$NativeLibraryElement");
     DEFINE_CLASS_NAME_SIGN(File, "java/io/File");
+    DEFINE_CLASS_NAME_SIGN(DexFile, "dalvik/system/DexFile");
+    DEFINE_CLASS_NAME_SIGN(ByteBuffer, "java/nio/ByteBuffer");
+    DEFINE_CLASS_NAME_SIGN(DexPathList_Element, "dalvik/system/DexPathList$Element");
+    DEFINE_CLASS_NAME_SIGN(LoadedApk, "android/app/LoadedApk");
+    DEFINE_CLASS_NAME_SIGN(ApplicationInfo, "android/content/pm/ApplicationInfo");
+    DEFINE_CLASS_NAME_SIGN(ArrayMap, "android/util/ArrayMap");
+    DEFINE_CLASS_NAME_SIGN(ProviderClientRecord,
+                           "android/app/ActivityThread$ProviderClientRecord");
+    DEFINE_CLASS_NAME_SIGN(ContentProvider, "android/content/ContentProvider");
+
 
 };
 

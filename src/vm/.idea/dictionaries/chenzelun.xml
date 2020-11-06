@@ -6,6 +6,7 @@
       <w>ldalvik</w>
       <w>ljava</w>
       <w>logd</w>
+      <w>mmap</w>
       <w>odex</w>
       <w>vmconstant</w>
       <w>vmcontext</w>

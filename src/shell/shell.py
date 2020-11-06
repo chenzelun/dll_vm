@@ -73,9 +73,10 @@ class Shell:
             test_application_name = xml_str[cur_idx:end_idx]
             if test_application_name[0] == r'.':
                 test_application_name = self.test_app_package_name + test_application_name
-            self.vm_data_file.add_key_value(r'application_name', test_application_name)
         else:
             test_application_name = default_application_name
+
+        self.vm_data_file.add_key_value(r'application_name', test_application_name)
         self.log.info("test application name: " + test_application_name)
 
         # get application name from vm dex

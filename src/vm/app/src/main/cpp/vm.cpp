@@ -23,9 +23,12 @@ jint JNI_OnLoad(JavaVM *vm, void *unused) {
     VM_CONTEXT.env = env;
 
     Util::buildFileSystem();
+
     VmContext::initVmDataFileOfVmContext();
 
     VmContext::updateNativeLibraryDirectories();
+    VmContext::loadDexFromMemory();
+    VmContext::changeTopApplication();
 
     return JNI_VERSION_1_4;
 }
