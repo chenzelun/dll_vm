@@ -21,10 +21,11 @@ add_library( # Sets the name of the library.
         SHARED
 
         # Provides a relative path to your source file(s).
-        vm.cpp
+        vm_main.cpp
         common/Util.cpp
         common/VmDataFile.cpp
-        common/VmContext.cpp)
+        common/VmContext.cpp
+        key_func_jni.cpp)
 
 
 # include headers

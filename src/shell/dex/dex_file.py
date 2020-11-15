@@ -540,7 +540,7 @@ class ProtoIdItem(Writeable):
         self.shorty_id: int = -1
         self.return_type_idx: int = -1
         self.parameters_off: int = -1
-        self.parameters: Optional[TypeIdItem] = None
+        self.parameters: Optional[TypeListItem] = None
 
     def parse(self, buf: bytes, pr: Pointer):
         self.shorty_id, self.return_type_idx, self.parameters_off = unpack_from('<3I', buf, pr.get_and_add(len(self)))
@@ -1400,6 +1400,7 @@ class CodeItem(Writeable):
         self.try_buf: Optional[bytearray] = None
 
         self.debug_info: Optional[DebugInfoItem] = None
+        self.disable = False
 
     @Pointer.update_offset
     def parse(self, buf: bytes, pr: Pointer):
@@ -1430,6 +1431,9 @@ class CodeItem(Writeable):
     @Pointer.update_offset
     @Pointer.update_pointer
     def to_bytes(self, buf: bytearray, pr: Pointer):
+        if self.disable:
+            return
+
         assert self.insns_size * 0x02 == len(self.insns)
         self.debug_info_off = self.debug_info.offset if self.debug_info else 0
         buf.extend(pack('<4H2I',
@@ -1451,6 +1455,21 @@ class CodeItem(Writeable):
             #     t.to_bytes(buf, pr)
             # self.handlers.to_bytes(buf, pr)
             buf.extend(self.try_buf)
+
+    def wrap_to_key_func(self) -> bytes:
+        assert self.insns_size * 0x02 == len(self.insns)
+        buf = bytearray()
+        buf.extend(pack('<4H2I',
+                        self.registers_size,
+                        self.ins_size,
+                        self.outs_size,
+                        self.tries_size,
+                        0,
+                        self.insns_size))
+        buf.extend(self.insns)
+        if self.tries_size > 0:
+            buf.extend(self.try_buf)
+        return buf
 
     @Debugger.print_all_fields
     def __repr__(self):
@@ -2017,6 +2036,24 @@ class DexFile:
     def get_type_name_by_idx(self, idx: int) -> str:
         type_id_pool = self.map_list.map[MapListItemType.TYPE_TYPE_ID_ITEM].data
         return self.get_string_by_idx(type_id_pool[idx].descriptor_id)
+
+    @staticmethod
+    def wrap_to_clazz_name(clazz_name: str) -> str:
+        return r'L' + clazz_name.replace('.', '/') + r';'
+
+    @staticmethod
+    def wrap_to_dex_clazz_name(clazz_name: str) -> str:
+        return clazz_name[1:-1]
+
+    def get_method_sign(self, proto_id: int) -> str:
+        proto_id_pool = self.map_list.map[MapListItemType.TYPE_PROTO_ID_ITEM].data
+        proto: ProtoIdItem = proto_id_pool.get_item(proto_id)
+        sign = r'('
+        if proto.parameters_off:
+            for p in proto.parameters.list:
+                sign += self.get_type_name_by_idx(p)
+        sign += r')' + self.get_type_name_by_idx(proto.return_type_idx)
+        return sign
 
 
 if __name__ == '__main__':

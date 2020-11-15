@@ -101,7 +101,7 @@ class Apk:
     def sign(store_pwd, alias, alias_pwd, in_path, out_path):
         task = Popen(
             ['jarsigner', '-verbose', '-sigalg', 'SHA1withRSA', '-digestalg', 'SHA1',
-             '-keystore', env.KEY_STORE_PATH, '-storepass', store_pwd,
+             '-keystore', env.RES_KEY_STORE_PATH, '-storepass', store_pwd,
              '-signedjar', out_path, in_path,
              alias, '-keypass', alias_pwd],
             stdout=PIPE, stderr=PIPE)

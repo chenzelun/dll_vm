@@ -1,7 +1,9 @@
 # dll_vm
 
+### We often choose between the right things and the easy ones。
+
 ## TODO
-  + [ ] test vm application name
+  + [x] test vm application name
   + [x] don't parse some data struct.
   + [x] test parsing
   + [x] write to new dex file
@@ -9,7 +11,7 @@
   + [x] change AndroidManifest.xml
   + [x] design a new format of data file
   + [x] main shell step
-  + [ ] main vm code about setup system
+  + [x] main vm code about setup system
   + [ ] test repackaged App
   + [ ] change java method to native method
   + [ ] add vm interpreter
@@ -28,6 +30,10 @@
   
 
 ## git log
+    [2020-11-15]:   1. TODO: test vm application name
+                    2. TODO: main vm code about setup system
+                    3. TODO: change java method to native method
+                    4. think more and choose one.
     [2020-11-04]:   1. TODO: test parsing
                     2. TODO: write to new dex file
                     3. TODO: test my dex file by apktool

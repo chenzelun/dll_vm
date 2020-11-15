@@ -9,7 +9,7 @@ from typing import Optional, List, Union
 from shell.common.utils import Debugger, Pointer, Log
 
 
-class Writeable(metaclass=ABCMeta):
+class VDF_Writeable(metaclass=ABCMeta):
     def __init__(self):
         self.offset = 0
 
@@ -23,7 +23,7 @@ class Writeable(metaclass=ABCMeta):
 
 
 # len: 4+20+4
-class VmHeader:
+class VDF_Header:
     def __init__(self):
         self.index_size = 0
         self.signature = b''
@@ -35,22 +35,21 @@ class VmHeader:
 
 
 @unique
-class VmDataType(IntEnum):
+class VDF_DataType(IntEnum):
     # uint32
     TYPE_KEY_VALUE = 1
     TYPE_FILE = 2
 
 
 # len: 4+4
-class VmIndex(Writeable):
-    def __init__(self, data_type: VmDataType, data=None):
+class VDF_Index(VDF_Writeable):
+    def __init__(self, data_type: VDF_DataType, data=None):
         super().__init__()
-        self.type: VmDataType = data_type
+        self.type: VDF_DataType = data_type
         self.data_off = 0
 
-        self.data: Optional[VmKeyValueData, VmFileData] = data
+        self.data: Optional[VDF_KeyValueData, VDF_FileData] = data
 
-    @Pointer.update_offset
     @Pointer.update_pointer
     def to_bytes(self, buf: bytearray, pr: Pointer):
         assert self.data
@@ -62,7 +61,7 @@ class VmIndex(Writeable):
         pass
 
 
-class VmString(Writeable):
+class VDF_String(VDF_Writeable):
     def __init__(self, data: str):
         super().__init__()
         self.data_size = 0
@@ -81,11 +80,11 @@ class VmString(Writeable):
         pass
 
 
-class VmKeyValueData(Writeable):
+class VDF_KeyValueData(VDF_Writeable):
     def __init__(self, key: str, val: str):
         super().__init__()
-        self.key = VmString(key)
-        self.val = VmString(val)
+        self.key = VDF_String(key)
+        self.val = VDF_String(val)
 
     @Pointer.update_offset
     def to_bytes(self, buf: bytearray, pr: Pointer):
@@ -97,10 +96,10 @@ class VmKeyValueData(Writeable):
         pass
 
 
-class VmFileData(Writeable):
+class VDF_FileData(VDF_Writeable):
     def __init__(self, file_name: str, data: Union[bytes, bytearray]):
         super().__init__()
-        self.name = VmString(file_name)
+        self.name = VDF_String(file_name)
         self.data_size = len(data)
         self.data = data
 
@@ -119,7 +118,7 @@ class VmFileData(Writeable):
 
 class VmDataFile:
     """
-        file format:
+        data format:
             data
             index
             header
@@ -128,21 +127,21 @@ class VmDataFile:
     def __init__(self):
         self.log = logging.getLogger(VmDataFile.__name__)
 
-        self.header = VmHeader()
-        self.index: List[VmIndex] = []
-        self.data: List[Optional[VmFileData, VmKeyValueData]] = []
+        self.header = VDF_Header()
+        self.index: List[VDF_Index] = []
+        self.data: List[Optional[VDF_FileData, VDF_KeyValueData]] = []
 
     @Log.log_function
     def add_file(self, file_name: str, file_data: Union[bytes, bytearray]):
-        data = VmFileData(file_name, file_data)
-        index = VmIndex(VmDataType.TYPE_FILE, data)
+        data = VDF_FileData(file_name, file_data)
+        index = VDF_Index(VDF_DataType.TYPE_FILE, data)
         self.data.append(data)
         self.index.append(index)
 
     @Log.log_function
     def add_key_value(self, key: str, val: str):
-        data = VmKeyValueData(key, val)
-        index = VmIndex(VmDataType.TYPE_KEY_VALUE, data)
+        data = VDF_KeyValueData(key, val)
+        index = VDF_Index(VDF_DataType.TYPE_KEY_VALUE, data)
         self.data.append(data)
         self.index.append(index)
 
@@ -161,7 +160,7 @@ class VmDataFile:
         self.header.checksum = zlib.adler32(buf)
         buf.extend(pack('<I', self.header.checksum))
 
-        # zip the vm data file
+        # zip the vm data data
         # file_name = r'vm_data'
         # tmp_vm_data_dir = os.path.join(env.TMP_ROOT, file_name)
         # shutil.rmtree(tmp_vm_data_dir)

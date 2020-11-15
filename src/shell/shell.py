@@ -7,8 +7,8 @@ import zipfile
 import env
 from lib.AXMLUtil.axml import AndroidXML
 from shell.common.utils import Apk, Log
-from shell.common.vm_data_file import VmDataFile
-from shell.dex.dex_file_modifier import DexFileModifier
+from shell.data.vm_data import VmDataFile
+from shell.dex.modifier import DexFileModifier
 
 
 class Shell:
@@ -19,6 +19,8 @@ class Shell:
         self.test_app_package_name = ''
 
         self.vm_path = os.path.join(env.TMP_ROOT, r'vm')
+        self.key_func_dir_path = os.path.join(
+            self.vm_path, r'app', r'src', r'main', r'cpp')
 
         self.dest_path_root = os.path.join(env.TMP_ROOT, r'dest_root')
         self.dest_path = os.path.join(self.dest_path_root, r'dest')
@@ -134,6 +136,8 @@ class Shell:
         dex_file_name = r'classes.dex'
         test_dex_path = os.path.join(self.test_path, dex_file_name)
         modifier = DexFileModifier.parse_dex_file(test_dex_path)
+        modifier.native_key_func(env.RES_KEY_FUNCTIONS_DEFINED_PATH,
+                                 self.key_func_dir_path)
         dex_file_buf = modifier.dex.to_bytes()
         self.vm_data_file.add_file(dex_file_name, dex_file_buf)
 
