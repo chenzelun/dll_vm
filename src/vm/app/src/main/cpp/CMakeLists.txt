@@ -22,10 +22,18 @@ add_library( # Sets the name of the library.
 
         # Provides a relative path to your source file(s).
         vm_main.cpp
+        VmContext.cpp
+        KeyFuncJni.cpp
+
         common/Util.cpp
-        common/VmDataFile.cpp
-        common/VmContext.cpp
-        key_func_jni.cpp)
+        common/AndroidSource.cpp
+
+        data/VmDataFile.cpp
+        data/VmKeyFuncCodeFile.cpp
+
+        vm/VmMethod.cpp
+        vm/Vm.cpp
+        )
 
 
 # include headers

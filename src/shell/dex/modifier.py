@@ -25,7 +25,7 @@ class DexFileModifier:
     def native_key_func(self, key_function_defined_path: str, out_path: str):
         key_func = self.__key_func_encoded_method(key_function_defined_path)
         code_file = VmKeyFuncCodeFile()
-        jni_file = VmKeyFuncJniFile()
+        jni_file = VmKeyFuncJniFile(self.dex)
         for em in key_func:
             # save code
             code_file.add_method(em)
@@ -37,7 +37,7 @@ class DexFileModifier:
             # don't write code in dex file
             em.code.disable = True
             # create jni method
-            jni_file.add_method(em, self.dex)
+            jni_file.add_method(em)
 
         self.vm_data.add_file(env.VM_DATA_KEY_FUNC_CODE_FILE_NAME, code_file.to_bytes())
         with open(os.path.join(out_path, env.KEY_FUNC_JNI_H_NAME), 'wb') as writer:
@@ -54,7 +54,7 @@ class DexFileModifier:
             if not class_def.class_data:
                 continue
 
-            name = DexFile.wrap_to_dex_clazz_name(
+            name = DexFile.wrap_to_class_name(
                 self.dex.get_type_name_by_idx(class_def.class_id))
             ret_flag = False
             for c in keys.clazz:
@@ -109,13 +109,11 @@ class DexFileModifier:
             if not em.code:
                 continue
 
-            method_id: dex_file.MethodIdItem = self.dex.map_list.map[
-                dex_file.MapListItemType.TYPE_METHOD_ID_ITEM].data.get_item(em.method_idx)
-            em_name = self.dex.get_string_by_idx(method_id.name_id)
+            em_name = self.dex.get_method_name(em.method_idx)
             if em_name != comp.method:
                 continue
             if comp.sign:
-                em_sign = self.dex.get_method_sign(method_id.proto_id)
+                em_sign = self.dex.get_method_sign(em.method_idx)
                 if em_sign == comp.sign:
                     ret.append(em)
                     break
@@ -126,7 +124,7 @@ class DexFileModifier:
 
     def get_class_names_by_super_class_name(self, super_name: str) -> List[str]:
         ret = []
-        super_name = DexFile.wrap_to_clazz_name(super_name)
+        super_name = DexFile.wrap_to_class_name_sign(super_name)
         class_def_pool = self.dex.map_list.map[
             dex_file.MapListItemType.TYPE_CLASS_DEF_ITEM].data
         cur_idx = 0

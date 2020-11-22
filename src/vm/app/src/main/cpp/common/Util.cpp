@@ -3,7 +3,7 @@
 //
 
 #include "Util.h"
-#include "VmContext.h"
+#include "../VmContext.h"
 #include "VmConstant.h"
 
 #include <string>

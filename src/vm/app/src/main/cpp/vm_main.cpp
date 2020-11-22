@@ -1,5 +1,5 @@
 #include "common/Util.h"
-#include "common/VmContext.h"
+#include "VmContext.h"
 
 #include <jni.h>
 #include <cassert>
@@ -24,7 +24,10 @@ jint JNI_OnLoad(JavaVM *vm, void *unused) {
 
     Util::buildFileSystem();
 
-    VmContext::initVmDataFileOfVmContext();
+    // init VmContext
+    VmContext::initVmDataFileOfVC();
+    VmContext::initVmKeyFuncCodeFileOfVC(); // may be sub process.
+    VmContext::initVm();
 
     VmContext::updateNativeLibraryDirectories();
     VmContext::loadDexFromMemory();

@@ -35,9 +35,14 @@ class Shell:
     @Log.log_function
     def shell(self):
         self.init()
+        self.virtual_dex_file()
+
+        # rebuild vm app with key function.
+        self.rebuild_and_unzip(env.VM_APP_ROOT, self.vm_path)
+        self.log.info(r'update   vm apk: ' + self.vm_path)
+
         self.copy_vm_dex()
         self.change_application_name()
-        self.change_dex_file()
         self.append_libs()
         self.copy_others()
         self.build_vm_data()
@@ -116,9 +121,7 @@ class Shell:
 
         # rebuild and unzip
         self.rebuild_and_unzip(env.TEST_APP_ROOT, self.test_path)
-        self.rebuild_and_unzip(env.VM_APP_ROOT, self.vm_path)
         self.log.info(r'update test apk: ' + self.test_path)
-        self.log.info(r'update   vm apk: ' + self.vm_path)
 
     @Log.log_function
     def rebuild_and_unzip(self, app_root: str, dest_path: str):
@@ -132,7 +135,7 @@ class Shell:
         zipfile.ZipFile(apk_path).extractall(dest_path)
 
     @Log.log_function
-    def change_dex_file(self):
+    def virtual_dex_file(self):
         dex_file_name = r'classes.dex'
         test_dex_path = os.path.join(self.test_path, dex_file_name)
         modifier = DexFileModifier.parse_dex_file(test_dex_path)

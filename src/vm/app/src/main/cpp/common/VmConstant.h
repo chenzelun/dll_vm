@@ -11,6 +11,7 @@ struct VM_CONFIG {
     RD_STR VM_DATA_FILE_NAME = "vm_data.bin";
     RD_STR DEST_APP_DEX_FILE_NAME = "classes.dex";
     RD_STR DEST_APP_APPLICATION_NAME = "application_name";
+    RD_STR VM_KEY_FUNC_CODE_FILE_NAME = "code";
 
     // runtime path
     RD_STR RUNTIME_LIB_PATH = "/lib";

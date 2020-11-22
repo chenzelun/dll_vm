@@ -5,7 +5,9 @@
 #ifndef VM_VMCONTEXT_H
 #define VM_VMCONTEXT_H
 
-#include "VmDataFile.h"
+#include "data/VmDataFile.h"
+#include "data/VmKeyFuncCodeFile.h"
+#include "vm/Vm.h"
 #include <jni.h>
 
 class VmContext {
@@ -13,10 +15,17 @@ public:
     JNIEnv *env;
     VmDataFile *vmDataFile;
 
+    VmKeyFuncCodeFile* vmKFCFile;
+
+    Vm *vm;
 
 public:
-    static void initVmDataFileOfVmContext();
 
+    static void initVmDataFileOfVC();
+
+    static void initVmKeyFuncCodeFileOfVC();
+
+    static void initVm();
 
     static void updateNativeLibraryDirectories();
 

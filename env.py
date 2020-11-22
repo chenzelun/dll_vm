@@ -23,8 +23,8 @@ RES_KEY_FUNCTIONS_DEFINED_PATH = os.path.join(
     r'key_functions',
     r'define')
 
-KEY_FUNC_JNI_H_NAME = r'key_func_jni.h'
-KEY_FUNC_JNI_CPP_NAME = r'key_func_jni.cpp'
+KEY_FUNC_JNI_H_NAME = r'KeyFuncJni.h'
+KEY_FUNC_JNI_CPP_NAME = r'KeyFuncJni.cpp'
 VM_DATA_KEY_FUNC_CODE_FILE_NAME = r'code'
 
 

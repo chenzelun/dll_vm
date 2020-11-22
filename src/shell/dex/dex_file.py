@@ -2038,22 +2038,67 @@ class DexFile:
         return self.get_string_by_idx(type_id_pool[idx].descriptor_id)
 
     @staticmethod
-    def wrap_to_clazz_name(clazz_name: str) -> str:
+    def wrap_to_class_name_sign(clazz_name: str) -> str:
         return r'L' + clazz_name.replace('.', '/') + r';'
 
     @staticmethod
-    def wrap_to_dex_clazz_name(clazz_name: str) -> str:
-        return clazz_name[1:-1]
+    def wrap_to_class_name(clazz_name: str) -> str:
+        return clazz_name[1:-1].replace('/', '.')
 
-    def get_method_sign(self, proto_id: int) -> str:
+    def get_method_sign(self, method_id: int) -> str:
+        method_pool = self.map_list.map[MapListItemType.TYPE_METHOD_ID_ITEM].data
+        method: MethodIdItem = method_pool.get_item(method_id)
         proto_id_pool = self.map_list.map[MapListItemType.TYPE_PROTO_ID_ITEM].data
-        proto: ProtoIdItem = proto_id_pool.get_item(proto_id)
+        proto: ProtoIdItem = proto_id_pool.get_item(method.proto_id)
         sign = r'('
         if proto.parameters_off:
             for p in proto.parameters.list:
                 sign += self.get_type_name_by_idx(p)
         sign += r')' + self.get_type_name_by_idx(proto.return_type_idx)
         return sign
+
+    def get_method_param_sign(self, method_id: int) -> str:
+        method_pool = self.map_list.map[MapListItemType.TYPE_METHOD_ID_ITEM].data
+        method: MethodIdItem = method_pool.get_item(method_id)
+        proto_id_pool = self.map_list.map[MapListItemType.TYPE_PROTO_ID_ITEM].data
+        proto: ProtoIdItem = proto_id_pool.get_item(method.proto_id)
+        sign = r''
+        if proto.parameters_off:
+            for p in proto.parameters.list:
+                sign += self.get_type_name_by_idx(p)
+        return sign
+
+    def get_method_name(self, method_id: int) -> str:
+        method_pool = self.map_list.map[MapListItemType.TYPE_METHOD_ID_ITEM].data
+        method: MethodIdItem = method_pool.get_item(method_id)
+        return self.get_string_by_idx(method.name_id)
+
+    def get_method_return_type(self, method_id: int) -> str:
+        method_pool = self.map_list.map[MapListItemType.TYPE_METHOD_ID_ITEM].data
+        method: MethodIdItem = method_pool.get_item(method_id)
+        proto_id_pool = self.map_list.map[MapListItemType.TYPE_PROTO_ID_ITEM].data
+        proto: ProtoIdItem = proto_id_pool.get_item(method.proto_id)
+        return self.get_type_name_by_idx(proto.return_type_idx)
+
+    def get_class_name(self, class_id: int) -> str:
+        class_def_pool = self.map_list.map[MapListItemType.TYPE_CLASS_DEF_ITEM].data
+        class_def: ClassDefItem = class_def_pool.get_item(class_id)
+        return DexFile.wrap_to_class_name(self.get_type_name_by_idx(class_def.class_id))
+
+    def get_class_name_by_method_id(self, method_id: int) -> str:
+        method_pool = self.map_list.map[MapListItemType.TYPE_METHOD_ID_ITEM].data
+        method: MethodIdItem = method_pool.get_item(method_id)
+        return self.get_class_name_by_method_id(method.class_id)
+
+    def get_method_param_short_names(self, method_id: int) -> str:
+        return self.get_method_short(method_id)[1:]
+
+    def get_method_short(self, method_id: int) -> str:
+        method_pool = self.map_list.map[MapListItemType.TYPE_METHOD_ID_ITEM].data
+        method: MethodIdItem = method_pool.get_item(method_id)
+        proto_id_pool = self.map_list.map[MapListItemType.TYPE_PROTO_ID_ITEM].data
+        proto: ProtoIdItem = proto_id_pool.get_item(method.proto_id)
+        return self.get_string_by_idx(proto.shorty_id)
 
 
 if __name__ == '__main__':

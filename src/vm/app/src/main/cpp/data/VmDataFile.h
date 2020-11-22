@@ -10,36 +10,36 @@
 #include <string>
 
 
-struct VmHeader {
+struct VDF_Header {
     uint32_t index_size;
     uint8_t signature[20];
     uint32_t checksum;
 };
 
-enum VmDataType {
+enum VDF_DataType {
     TYPE_KEY_VALUE = 1,
     TYPE_FILE = 2,
 };
 
-struct VmIndex {
+struct VDF_Index {
     uint32_t type;
     uint32_t data_off;
 };
 
-struct VmString {
+struct VDF_String {
     uint32_t data_size;
     char data[0];
 };
 
-class VmKeyValueData {
+class VDF_KeyValueData {
 private:
-    VmString *key{};
-    VmString *val{};
+    VDF_String *key;
+    VDF_String *val;
 
 public:
-    VmKeyValueData() {};
+    VDF_KeyValueData() {};
 
-    VmKeyValueData(const uint8_t *pr);
+    VDF_KeyValueData(const uint8_t *pr);
 
     void reset(const uint8_t *pr);
 
@@ -48,16 +48,16 @@ public:
     const char *getVal() const;
 };
 
-class VmFileData {
+class VDF_FileData {
 private:
-    VmString *name{};
-    uint32_t data_size{};
-    const char *data{};
+    VDF_String *name;
+    uint32_t data_size;
+    const uint8_t *data;
 
 public:
-    VmFileData() {};
+    VDF_FileData() {};
 
-    VmFileData(const uint8_t *pr);
+    VDF_FileData(const uint8_t *pr);
 
     void reset(const uint8_t *pr);
 
@@ -65,26 +65,22 @@ public:
 
     uint32_t getDataSize() const;
 
-    const char *getData() const;
+    const uint8_t * getData() const;
 };
 
 class VmDataFile {
 private:
     const uint8_t *base;
     const uint8_t *end;
-    VmHeader *header;
-    VmIndex *index;
+    VDF_Header *header;
+    VDF_Index *index;
 
 public:
     VmDataFile(const uint8_t *pr, uint32_t fileSize);
 
-    bool findValByKey(const std::string &key, VmKeyValueData &retVal) const;
+    bool findValByKey(const std::string &key, VDF_KeyValueData &retVal) const;
 
-    bool findFileByName(const std::string &key, VmFileData &retVal) const;
-
-    ~VmDataFile(){
-        free((void *) this->base);
-    };
+    bool findFileByName(const std::string &key, VDF_FileData &retVal) const;
 };
 
 

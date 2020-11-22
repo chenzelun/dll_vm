@@ -13,13 +13,14 @@
   + [x] main shell step
   + [x] main vm code about setup system
   + [ ] test repackaged App
-  + [ ] change java method to native method
+  + [x] change java method to native method
   + [ ] add vm interpreter
   + [ ] test base vmp's App
   + [ ] randomized bytecode and update interpreter
   + [ ] relocate "relocate" and confusion
   + [ ] add code cache
   + [ ] hide stack
+  + [ ] stack in random address
   + [ ] cancel JNI call
   + [ ] delete debug info in dex file
   + [ ] test App's profile
@@ -27,9 +28,12 @@
   
   Additional:
   + [ ] zip my data file
+  + [ ] opt reg memory
   
 
 ## git log
+    [2020-11-23]:   1. TODO: change java method to native method
+                    2. finish init VmMethodContext.
     [2020-11-15]:   1. TODO: test vm application name
                     2. TODO: main vm code about setup system
                     3. TODO: change java method to native method

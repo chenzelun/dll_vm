@@ -5,7 +5,7 @@
 #ifndef VM_UTIL_H
 #define VM_UTIL_H
 
-#include "VmContext.h"
+#include "../VmContext.h"
 
 #include <jni.h>
 #include <android/log.h>

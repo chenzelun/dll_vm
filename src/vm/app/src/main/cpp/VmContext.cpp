@@ -3,17 +3,17 @@
 //
 
 #include "VmContext.h"
-#include "Util.h"
-#include "VmConstant.h"
+#include "common/Util.h"
+#include "common/VmConstant.h"
 
-void VmContext::initVmDataFileOfVmContext() {
-    LOG_D("start, initVmDataFileOfVmContext");
+void VmContext::initVmDataFileOfVC() {
+    LOG_D("start, initVmDataFileOfVC");
     uint32_t bufSize = 0;
     const uint8_t *vmDataFileBuf =
             Util::getFileBufFromAssets(VM_CONFIG::VM_DATA_FILE_NAME, bufSize);
     assert(bufSize != 0);
     VM_CONTEXT.vmDataFile = new VmDataFile(vmDataFileBuf, bufSize);
-    LOG_D("finish, initVmDataFileOfVmContext");
+    LOG_D("finish, initVmDataFileOfVC");
 }
 
 void VmContext::updateNativeLibraryDirectories() {
@@ -85,7 +85,7 @@ void VmContext::loadDexFromMemory() {
     auto oDexElements =
             reinterpret_cast<jobjectArray>((*env).GetObjectField(oPathList, fDexElements));
     LOG_D("2");
-    VmFileData dexFileData;
+    VDF_FileData dexFileData;
     VM_CONTEXT.vmDataFile->findFileByName(VM_CONFIG::DEST_APP_DEX_FILE_NAME, dexFileData);
     jclass cDexFile = (*env).FindClass(VM_REFLECT::C_NAME_DexFile);
     jbyteArray byteArray = (*env).NewByteArray(dexFileData.getDataSize());
@@ -166,7 +166,7 @@ void VmContext::changeTopApplication() {
             cActivityThread, mCurrentActivityThread);
 
     LOG_D("2");
-    VmKeyValueData applicationName;
+    VDF_KeyValueData applicationName;
     VM_CONTEXT.vmDataFile->findValByKey(VM_CONFIG::DEST_APP_APPLICATION_NAME, applicationName);
     jstring sAppName = (*env).NewStringUTF(applicationName.getVal());
     //有值的话调用该 Application
@@ -317,4 +317,16 @@ void VmContext::changeTopApplication() {
     (*env).DeleteLocalRef(cMap);
     (*env).DeleteLocalRef(c2Application);
     LOG_D("finish, changeTopApplication");
+}
+
+void VmContext::initVmKeyFuncCodeFileOfVC() {
+    LOG_D("start, initVmKeyFuncCodeFileOfVC.");
+    VDF_FileData kfc;
+    VM_CONTEXT.vmDataFile->findFileByName(VM_CONFIG::VM_KEY_FUNC_CODE_FILE_NAME, kfc);
+    VM_CONTEXT.vmKFCFile = new VmKeyFuncCodeFile(kfc.getData(), kfc.getDataSize());
+    LOG_D("finish, initVmKeyFuncCodeFileOfVC.");
+}
+
+void VmContext::initVm() {
+    VM_CONTEXT.vm = new Vm();
 }

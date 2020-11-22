@@ -140,6 +140,9 @@ class Log:
                 raise RuntimeWarning(r"can't find a field named 'log'.")
             obj.log.debug("enter function: " + func.__name__)
             ret = func(*args, **kwargs)
+            if ret:
+                obj.log.debug("ret value: ")
+                obj.log.debug(ret)
             obj.log.debug("out function: " + func.__name__)
             return ret
 
