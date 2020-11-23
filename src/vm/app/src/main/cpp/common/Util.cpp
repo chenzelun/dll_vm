@@ -5,6 +5,7 @@
 #include "Util.h"
 #include "../VmContext.h"
 #include "VmConstant.h"
+#include "../include/AndHook.h"
 
 #include <string>
 #include <vector>
@@ -15,7 +16,7 @@
 std::string &Util::getBaseFilesDir() {
     static std::string baseDir;
     if (baseDir.empty()) {
-        JNIEnv *env = VM_CONTEXT.env;
+        JNIEnv *env = VM_CONTEXT::env;
         jobject oContext = getAppContext();
         jclass cContext = (*env).GetObjectClass(oContext);
         jmethodID mGetFilesDir = (*env).GetMethodID(
@@ -100,7 +101,7 @@ void Util::buildFileSystem() {
 
 const uint8_t *Util::getFileBufFromAssets(const std::string &fileName, uint32_t &buf_size) {
     LOG_D("start, getFileFromAssets, fileName: %s", fileName.data());
-    JNIEnv *env = VM_CONTEXT.env;
+    JNIEnv *env = VM_CONTEXT::env;
     jclass cContextWrapper = (*env).FindClass(VM_REFLECT::C_NAME_ContextWrapper);
     jmethodID mGetAssets = (*env).GetMethodID(
             cContextWrapper, VM_REFLECT::NAME_GetAssets, VM_REFLECT::SIGN_GetAssets);
@@ -122,7 +123,7 @@ const uint8_t *Util::getFileBufFromAssets(const std::string &fileName, uint32_t 
 jobject Util::getAppContext() {
     static jobject appContext = nullptr;
     if (appContext == nullptr) {
-        JNIEnv *env = VM_CONTEXT.env;
+        JNIEnv *env = VM_CONTEXT::env;
         jclass cActivityThread = (*env).FindClass(VM_REFLECT::C_NAME_ActivityThread);
         jmethodID mCurrentActivityThread = (*env).GetStaticMethodID(
                 cActivityThread, VM_REFLECT::NAME_CurrentActivityThread,
@@ -185,13 +186,77 @@ constexpr const char *Util::getCUP_ABI() {
 jobject Util::getClassLoader() {
     static jobject oClassLoader = nullptr;
     if (oClassLoader == nullptr) {
-        JNIEnv *env = VM_CONTEXT.env;
+        JNIEnv *env = VM_CONTEXT::env;
         jobject oContext = getAppContext();
         jclass cContext = (*env).GetObjectClass(oContext);
         jmethodID mGetClassLoader = (*env).GetMethodID(
-                cContext, VM_REFLECT::NAME_GetClassLoader,VM_REFLECT::SIGN_GetClassLoader);
+                cContext, VM_REFLECT::NAME_GetClassLoader, VM_REFLECT::SIGN_GetClassLoader);
         oClassLoader = (*env).CallObjectMethod(oContext, mGetClassLoader);
         LOG_D("getClassLoader first...");
     }
     return oClassLoader;
+}
+
+bool
+Util::HookNativeInline(const char *soPath, const char *signature, void *my_func, void **ori_func) {
+    LOG_D("start HookNativeInline...");
+    auto *lib = AKGetImageByName(soPath);
+    if (lib == nullptr) {
+        LOG_E("can't find so by the path: %s", soPath);
+        return false;
+    }
+    LOG_D("lib base address: %p", AKGetBaseAddress(lib));
+
+    auto *symbol = AKFindSymbol(lib, signature);
+    if (symbol == nullptr) {
+        LOG_E("can't find the symbol: %s", signature);
+        AKCloseImage(lib);
+        return false;
+    }
+    AKHookFunction(symbol, my_func, ori_func);
+    AKCloseImage(lib);
+    return true;
+}
+
+bool
+Util::HookNativeInlineAnonymous(const char *soPath, uint64_t addr, void *my_func, void **ori_func) {
+    LOG_D("start HookNativeInline...");
+    auto *lib = AKGetImageByName(soPath);
+    if (lib == nullptr) {
+        LOG_E("can't find so by the path: %s", soPath);
+        return false;
+    }
+    LOG_D("lib base address: %p", AKGetBaseAddress(lib));
+
+    auto *symbol = AKFindAnonymity(lib, addr | 0x1);
+    if (symbol == nullptr) {
+        LOG_E("can't find the symbol at addr: 0x%016lx", addr);
+        AKCloseImage(lib);
+        return false;
+    }
+    AKHookFunction(symbol, my_func, ori_func);
+    AKCloseImage(lib);
+    return true;
+}
+
+bool Util::HookJava(JNIEnv *env, const char *clazzPath, const char *methodName,
+                    const char *methodSignature, const void *my_func, jmethodID *ori_func) {
+    LOG_D("start HookJava...");
+    // init AndHook Java
+    static bool initAndHookJava = true;
+    if (initAndHookJava) {
+        initAndHookJava = false;
+        JavaVM *vm = nullptr;
+        (*env).GetJavaVM(&vm);
+        AKInitializeOnce(env, vm);
+        LOG_D("init java hook vm...");
+    }
+    jclass clazz = (*env).FindClass(clazzPath);
+    if (clazz == nullptr) {
+        LOG_E("can't find the class by the path: %s", clazzPath);
+        return false;
+    }
+    AKJavaHookMethod(env, clazz, methodName, methodSignature, my_func, ori_func);
+    (*env).DeleteLocalRef(clazz);
+    return true;
 }

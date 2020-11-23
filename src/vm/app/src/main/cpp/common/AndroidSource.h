@@ -157,7 +157,7 @@ struct CodeItemData {
     u2 triesSize;
     u4 debugInfoOff;
     u4 insnsSize;
-    u2 *insns;
+    u2 insns[1];
     u1 *triesAndHandlersBuf;
 };
 

@@ -13,7 +13,7 @@ VmKeyFuncCodeFile::VmKeyFuncCodeFile(const uint8_t *pr, uint32_t fileSize) {
 
     for(int off = 0; off< this->header->index_size; off++){
         uint32_t method_id = index[off].method_id;
-        VKFC_Code* c = (VKFC_Code *) (this->base + index[off].code_offset);
+        auto* c = (VKFC_Code *) (this->base + index[off].code_offset);
         this->code[method_id] = c->code;
     }
 }

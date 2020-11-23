@@ -42,6 +42,16 @@ public:
     constexpr static const char *getCUP_ABI();
 
     static jobject getClassLoader();
+
+    static bool
+    HookNativeInline(const char *soPath, const char *signature, void *my_func, void **ori_func);
+
+    static bool
+    HookNativeInlineAnonymous(const char *soPath, uint64_t addr, void *my_func, void **ori_func);
+
+    static bool
+    HookJava(JNIEnv *env, const char *clazzPath, const char *methodName,
+             const char *methodSignature, const void *my_func, jmethodID *ori_func);
 };
 
 

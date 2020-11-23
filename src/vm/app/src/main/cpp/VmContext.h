@@ -10,14 +10,12 @@
 #include "vm/Vm.h"
 #include <jni.h>
 
-class VmContext {
+class VM_CONTEXT {
 public:
-    JNIEnv *env;
-    VmDataFile *vmDataFile;
-
-    VmKeyFuncCodeFile* vmKFCFile;
-
-    Vm *vm;
+    static JNIEnv *env;
+    static VmDataFile *vmDataFile;
+    static VmKeyFuncCodeFile* vmKFCFile;
+    static Vm *vm;
 
 public:
 
@@ -33,7 +31,7 @@ public:
 
     static void changeTopApplication();
 
-} VM_CONTEXT;
+};
 
 
 #endif //VM_VMCONTEXT_H

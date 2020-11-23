@@ -179,7 +179,7 @@ extern "C" {
     /// </summary>
     jobject AKGetClassLoader(JNIEnv *env, jclass clazz);
     /// <summary>
-    /// Returns the context ClassLoader associated with the specified VmContext instance
+    /// Returns the context ClassLoader associated with the specified VM_CONTEXT instance
     /// </summary>
     jobject AKGetContextClassLoader(JNIEnv *env, jobject context);
     /// <summary>

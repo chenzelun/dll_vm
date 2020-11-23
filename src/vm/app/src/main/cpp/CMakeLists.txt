@@ -31,8 +31,8 @@ add_library( # Sets the name of the library.
         data/VmDataFile.cpp
         data/VmKeyFuncCodeFile.cpp
 
-        vm/VmMethod.cpp
         vm/Vm.cpp
+        vm/VmMethod.cpp
         )
 
 
@@ -52,7 +52,7 @@ set_target_properties(
         AK
         PROPERTIES IMPORTED_LOCATION
 
-        ${CMAKE_SOURCE_DIR}/../jniLibs/${CMAKE_ANDROID_ARCH_ABI}/libAK.so)
+        ${CMAKE_SOURCE_DIR}/../thirdLibs/${CMAKE_ANDROID_ARCH_ABI}/libAK.so)
 
 
 

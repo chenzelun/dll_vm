@@ -1,5 +1,5 @@
 //
-// Created by 陈泽伦 on 11/16/20.
+// Created by 陈泽伦 on 11/23/20.
 //
 
 #ifndef VM_VMMETHOD_H
@@ -7,7 +7,6 @@
 
 
 #include <jni.h>
-#include <vector>
 #include "../common/AndroidSource.h"
 
 class DexFile {
@@ -96,36 +95,59 @@ public:
     void updateCode();
 };
 
-class VmRegister {
-private:
-    uint64_t *reg;
-    uint32_t len;
-
-public:
-    VmRegister(uint32_t len);
-
-    ~VmRegister() {
-        free(reg);
-    }
-
-    template<typename T>
-    void write(int idx, T data);
-
-    template<typename T>
-    T read(int idx);
-
+union RegValue{
+    jboolean    z;
+    jbyte       b;
+    jchar       c;
+    jshort      s;
+    jint        i;
+    jlong       j;
+    jfloat      f;
+    jdouble     d;
+    jobject     l;
+    uint64_t    u64;
+    uint32_t    u32;
 };
-
 
 class VmMethodContext {
 public:
     const VmMethod *method;
     jobject caller;
     const jvalue *result;
-    VmRegister reg;
+    RegValue *reg;
+    uint32_t reg_len;
+
+    uint16_t pc;
+    uint16_t src1, src2, dst;
+    jthrowable curException = nullptr;
 
 public:
     VmMethodContext(jobject caller, const VmMethod *method, const jvalue *pResult, va_list param);
+
+    // reader
+    inline uint16_t fetch_op() const {
+        return (this->method->code->insns[pc]) & 0xff;
+    }
+
+    inline uint16_t fetch(uint16_t off) const {
+        return (this->method->code->insns[pc + off]) & 0xff;
+    }
+
+    inline uint16_t inst_A() const {
+        return ((this->method->code->insns[pc]) >> 8) & 0x0f;
+    }
+
+    inline uint16_t inst_B() const {
+        return ((this->method->code->insns[pc]) >> 12) & 0x0f;
+    }
+
+    inline uint16_t inst_AA() const {
+        return ((this->method->code->insns[pc]) >> 8);
+    }
+
+    inline void pc_off(uint32_t off) {
+        this->pc += off;
+    }
 };
 
 

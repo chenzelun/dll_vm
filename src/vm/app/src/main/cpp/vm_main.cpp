@@ -20,18 +20,18 @@ jint JNI_OnLoad(JavaVM *vm, void *unused) {
         return JNI_ERR;
     }
     assert(env != nullptr);
-    VM_CONTEXT.env = env;
+    VM_CONTEXT::env = env;
 
     Util::buildFileSystem();
 
-    // init VmContext
-    VmContext::initVmDataFileOfVC();
-    VmContext::initVmKeyFuncCodeFileOfVC(); // may be sub process.
-    VmContext::initVm();
+    // init VM_CONTEXT
+    VM_CONTEXT::initVmDataFileOfVC();
+    VM_CONTEXT::initVmKeyFuncCodeFileOfVC(); // may be sub process.
+    VM_CONTEXT::initVm();
 
-    VmContext::updateNativeLibraryDirectories();
-    VmContext::loadDexFromMemory();
-    VmContext::changeTopApplication();
+    VM_CONTEXT::updateNativeLibraryDirectories();
+    VM_CONTEXT::loadDexFromMemory();
+    VM_CONTEXT::changeTopApplication();
 
     return JNI_VERSION_1_4;
 }

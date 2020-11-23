@@ -13,9 +13,10 @@ android {
         versionCode 1
         versionName "1.0"
 
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         externalNativeBuild {
             cmake {
-                cppFlags "-std=c++14 -fexceptions -frtti"
+                cppFlags "-std=c++14"
                 abiFilters "arm64-v8a"
             }
         }
@@ -40,5 +41,4 @@ android {
 }
 
 dependencies {
-    implementation fileTree(dir: 'libs', include: ['*.jar'])
 }
