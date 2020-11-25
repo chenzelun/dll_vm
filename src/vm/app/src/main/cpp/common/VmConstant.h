@@ -166,6 +166,14 @@ struct VM_REFLECT {
                      "mContext",
                      "Landroid/content/Context;");
 
+    DEFINE_NAME_SIGN(Class_getComponentType,
+                     "getComponentType",
+                     "()Ljava/lang/Class;");
+
+    DEFINE_NAME_SIGN(Class_getName,
+                     "getName",
+                     "()Ljava/lang/String;");
+
 
 
 
@@ -185,7 +193,15 @@ struct VM_REFLECT {
     DEFINE_CLASS_NAME_SIGN(ProviderClientRecord,
                            "android/app/ActivityThread$ProviderClientRecord");
     DEFINE_CLASS_NAME_SIGN(ContentProvider, "android/content/ContentProvider");
-
+    DEFINE_CLASS_NAME_SIGN(Class, "java/lang/Class");
+    DEFINE_CLASS_NAME_SIGN(NullPointerException, "java/lang/NullPointerException");
+    DEFINE_CLASS_NAME_SIGN(ClassCastException, "java/lang/ClassCastException");
+    DEFINE_CLASS_NAME_SIGN(NegativeArraySizeException,
+            "java/lang/NegativeArraySizeException");
+    DEFINE_CLASS_NAME_SIGN(RuntimeException, "java/lang/RuntimeException");
+    DEFINE_CLASS_NAME_SIGN(InternalError, "java/lang/InternalError");
+    DEFINE_CLASS_NAME_SIGN(ArrayIndexOutOfBoundsException,
+                           "java/lang/ArrayIndexOutOfBoundsException");
 
 };
 

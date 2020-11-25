@@ -1,11 +1,30 @@
 <component name="ProjectDictionaryState">
   <dictionary name="chenzelun">
     <words>
+      <w>addr</w>
+      <w>aget</w>
       <w>androidsource</w>
+      <w>aput</w>
       <w>defs</w>
       <w>descr</w>
+      <w>ident</w>
+      <w>iget</w>
+      <w>insns</w>
+      <w>iput</w>
+      <w>jclass</w>
+      <w>landroid</w>
+      <w>ldalvik</w>
+      <w>ljava</w>
+      <w>odex</w>
+      <w>sget</w>
+      <w>sput</w>
+      <w>ubyte</w>
+      <w>uint</w>
       <w>uleb</w>
+      <w>ushort</w>
+      <w>ushr</w>
       <w>vdst</w>
+      <w>vmconstant</w>
       <w>vmcontext</w>
       <w>vmmethod</w>
       <w>vsrc</w>

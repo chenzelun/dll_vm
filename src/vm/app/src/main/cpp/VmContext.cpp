@@ -63,11 +63,11 @@ void VM_CONTEXT::updateNativeLibraryDirectories() {
             oNativeLibraryPathElementsNew, oldLenNativeLibraryPathElements, oNativeLibraryElement);
     (*pEnv).SetObjectField(oPathList, fNativeLibraryPathElements, oNativeLibraryPathElementsNew);
     LOG_D("4");
-    (*pEnv).DeleteLocalRef(cClassLoader);
-    (*pEnv).DeleteLocalRef(cBaseDexClassLoader);
-    (*pEnv).DeleteLocalRef(cDexPathList);
-    (*pEnv).DeleteLocalRef(cNativeLibraryElement);
-    (*pEnv).DeleteLocalRef(cFile);
+//    (*pEnv).DeleteLocalRef(cClassLoader);
+//    (*pEnv).DeleteLocalRef(cBaseDexClassLoader);
+//    (*pEnv).DeleteLocalRef(cDexPathList);
+//    (*pEnv).DeleteLocalRef(cNativeLibraryElement);
+//    (*pEnv).DeleteLocalRef(cFile);
     LOG_D("finish, updateNativeLibraryDirectories");
 }
 
@@ -147,12 +147,12 @@ void VM_CONTEXT::loadDexFromMemory() {
     LOG_D("6");
     (*pEnv).SetObjectField(oPathList, fDexElements, oDexElementsNew);
     LOG_D("7");
-    (*pEnv).DeleteLocalRef(cClassLoader);
-    (*pEnv).DeleteLocalRef(cBaseDexClassLoader);
-    (*pEnv).DeleteLocalRef(cDexPathList);
-    (*pEnv).DeleteLocalRef(cDexFile);
-    (*pEnv).DeleteLocalRef(cByteBuffer);
-    (*pEnv).DeleteLocalRef(cElement);
+//    (*pEnv).DeleteLocalRef(cClassLoader);
+//    (*pEnv).DeleteLocalRef(cBaseDexClassLoader);
+//    (*pEnv).DeleteLocalRef(cDexPathList);
+//    (*pEnv).DeleteLocalRef(cDexFile);
+//    (*pEnv).DeleteLocalRef(cByteBuffer);
+//    (*pEnv).DeleteLocalRef(cElement);
     LOG_D("finish, loadDexFromMemory");
 }
 
@@ -309,18 +309,18 @@ void VM_CONTEXT::changeTopApplication() {
     (*pEnv).CallVoidMethod(oApplication, mOnCreate);
 
     LOG_D("99.9999999999");
-    (*pEnv).DeleteLocalRef(cActivityThread);
-    (*pEnv).DeleteLocalRef(cApplicationInfo);
-    (*pEnv).DeleteLocalRef(cAppBindData);
-    (*pEnv).DeleteLocalRef(cApplication);
-    (*pEnv).DeleteLocalRef(cArrayList);
-    (*pEnv).DeleteLocalRef(cCollection);
-    (*pEnv).DeleteLocalRef(cContentProvider);
-    (*pEnv).DeleteLocalRef(cIterator);
-    (*pEnv).DeleteLocalRef(cLoadedApk);
-    (*pEnv).DeleteLocalRef(cProviderClientRecord);
-    (*pEnv).DeleteLocalRef(cMap);
-    (*pEnv).DeleteLocalRef(c2Application);
+//    (*pEnv).DeleteLocalRef(cActivityThread);
+//    (*pEnv).DeleteLocalRef(cApplicationInfo);
+//    (*pEnv).DeleteLocalRef(cAppBindData);
+//    (*pEnv).DeleteLocalRef(cApplication);
+//    (*pEnv).DeleteLocalRef(cArrayList);
+//    (*pEnv).DeleteLocalRef(cCollection);
+//    (*pEnv).DeleteLocalRef(cContentProvider);
+//    (*pEnv).DeleteLocalRef(cIterator);
+//    (*pEnv).DeleteLocalRef(cLoadedApk);
+//    (*pEnv).DeleteLocalRef(cProviderClientRecord);
+//    (*pEnv).DeleteLocalRef(cMap);
+//    (*pEnv).DeleteLocalRef(c2Application);
     LOG_D("finish, changeTopApplication");
 }
 

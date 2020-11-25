@@ -32,8 +32,8 @@ std::string &Util::getBaseFilesDir() {
 
         LOG_D("getBaseFilesDir success first....");
         LOG_D("baseDir: %s", baseDir.data());
-        (*env).DeleteLocalRef(cContext);
-        (*env).DeleteLocalRef(cFile);
+//        (*env).DeleteLocalRef(cContext);
+//        (*env).DeleteLocalRef(cFile);
     }
     return baseDir;
 }
@@ -110,7 +110,7 @@ const uint8_t *Util::getFileBufFromAssets(const std::string &fileName, uint32_t 
     AAssetManager *assetManager = AAssetManager_fromJava(env, oAssetsManager);
     assert(assetManager != nullptr);
     LOG_D("Get AssetManager success...");
-    (*env).DeleteLocalRef(cContextWrapper);
+//    (*env).DeleteLocalRef(cContextWrapper);
 
     AAsset *asset = AAssetManager_open(assetManager, fileName.data(), AASSET_MODE_BUFFER);
     buf_size = AAsset_getLength(asset);
@@ -143,8 +143,8 @@ jobject Util::getAppContext() {
         jobject oContext = (*env).CallObjectMethod(oCurrentApplication, mGetApplicationContext);
         appContext = (*env).NewGlobalRef(oContext);
         LOG_D("getAppContext success first....");
-        (*env).DeleteLocalRef(cActivityThread);
-        (*env).DeleteLocalRef(cApplication);
+//        (*env).DeleteLocalRef(cActivityThread);
+//        (*env).DeleteLocalRef(cApplication);
     }
     return appContext;
 }
@@ -257,6 +257,6 @@ bool Util::HookJava(JNIEnv *env, const char *clazzPath, const char *methodName,
         return false;
     }
     AKJavaHookMethod(env, clazz, methodName, methodSignature, my_func, ori_func);
-    (*env).DeleteLocalRef(clazz);
+//    (*env).DeleteLocalRef(clazz);
     return true;
 }

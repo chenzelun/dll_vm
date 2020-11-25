@@ -7,6 +7,7 @@
 
 
 #include <jni.h>
+#include "../common/Util.h"
 #include "../common/AndroidSource.h"
 
 class DexFile {
@@ -93,36 +94,76 @@ public:
     VmMethod(jmethodID jniMethod);
 
     void updateCode();
+
+    jstring resolveString(u4 idx) const;
+
+    jclass resolveClass(u4 idx) const;
+
+    jarray allocArray(const s4 len, u4 idx) const;
+
+    static std::string getClassDescriptorByJClass(jclass clazz);
+
+
 };
 
-union RegValue{
-    jboolean    z;
-    jbyte       b;
-    jchar       c;
-    jshort      s;
-    jint        i;
-    jlong       j;
-    jfloat      f;
-    jdouble     d;
-    jobject     l;
-    uint64_t    u64;
-    uint32_t    u32;
+union RegValue {
+    jboolean z;
+    jbyte b;
+    jchar c;
+    jshort s;
+    jint i;
+    jlong j;
+    jfloat f;
+    jdouble d;
+    jobject l;
+    uint64_t u8;
+    uint32_t u4;
+    uint16_t u2;
+    uint8_t u1;
+    int64_t s8;
+    int32_t s4;
+    int16_t s2;
+    int8_t s1;
+    jarray la;
+    jclass lc;
+    jobjectArray lla;
+    jintArray lia;
+    jcharArray lca;
+    jbooleanArray lza;
+    jbyteArray lba;
+    jfloatArray lfa;
+    jdoubleArray lda;
+    jshortArray lsa;
+    jlongArray lja;
+    jthrowable lt;
 };
 
 class VmMethodContext {
 public:
     const VmMethod *method;
-    jobject caller;
-    const jvalue *result;
     RegValue *reg;
-    uint32_t reg_len;
+    jobject caller;
 
-    uint16_t pc;
-    uint16_t src1, src2, dst;
+    uint16_t src1 = 0, src2 = 0, dst = 0;
+    jvalue *retVal;
     jthrowable curException = nullptr;
+    RegValue tmp{};
+
+private:
+    uint16_t pc;
+    bool isFinished = false;
 
 public:
-    VmMethodContext(jobject caller, const VmMethod *method, const jvalue *pResult, va_list param);
+    VmMethodContext(jobject caller, const VmMethod *method, jvalue *pResult, va_list param);
+
+    inline void finish() {
+        assert(!this->isFinished);
+        this->isFinished = true;
+    }
+
+    inline bool isFinish() const {
+        return this->isFinished;
+    }
 
     // reader
     inline uint16_t fetch_op() const {
@@ -148,7 +189,17 @@ public:
     inline void pc_off(uint32_t off) {
         this->pc += off;
     }
-};
 
+    inline void pc_goto(int32_t off) {
+        this->pc = this->pc + off;
+        assert(0 <= this->pc && this->pc <= this->method->code->insnsSize);
+    }
+
+    inline const u2 *arrayData(s4 off) {
+        s4 data_off = this->pc + off;
+        assert(0 <= data_off && data_off <= this->method->code->insnsSize);
+        return this->method->code->insns + data_off;
+    }
+};
 
 #endif //VM_VMMETHOD_H

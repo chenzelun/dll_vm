@@ -3,8 +3,8 @@
 //
 
 #include "VmMethod.h"
-#include "Vm.h"
-#include "../common/Util.h"
+#include "../common/VmConstant.h"
+#include "../VmContext.h"
 
 DexFile::DexFile(const u1 *base) {
     this->base = base;
@@ -39,13 +39,92 @@ void VmMethod::updateCode() {
     this->code->triesAndHandlersBuf += this->code->insnsSize & (uint32_t) 0x01 ? 0x02 : 0x00;
 }
 
+jstring VmMethod::resolveString(u4 idx) const {
+    const char *data = this->dexFile->dexStringById(idx);
+    LOG_D("+++ resolving string=%s, referrer is %s", data, this->clazzDescriptor);
+    return VM_CONTEXT::env->NewStringUTF(data);
+}
+
+jclass VmMethod::resolveClass(u4 idx) const {
+    const char *clazzName = this->dexFile->dexStringByTypeIdx(idx);
+    jclass retClass;
+    if (clazzName[0] != '\0' && clazzName[1] == '\0') {
+        retClass = VM_CONTEXT::vm->findPrimitiveClass(clazzName[0]);
+    } else {
+        retClass = (*VM_CONTEXT::env).FindClass(clazzName);
+    }
+//    assert(retClass != nullptr);  // throw exception if retClass==nullptr
+    LOG_D("--- resolving class %s (idx=%u referrer=%s)", clazzName, idx, this->clazzDescriptor);
+    return retClass;
+}
+
+
+std::string VmMethod::getClassDescriptorByJClass(jclass clazz) {
+    JNIEnv *env = VM_CONTEXT::env;
+    jclass cClass = (*env).FindClass(VM_REFLECT::C_NAME_Class);
+    jmethodID mGetCanonicalName = (*env).GetMethodID(
+            cClass, VM_REFLECT::NAME_Class_getName,
+            VM_REFLECT::SIGN_Class_getName);
+    auto utfString = (jstring) (*env).CallObjectMethod(clazz, mGetCanonicalName);
+    const char *javaDescChars = (*env).GetStringUTFChars(utfString, JNI_FALSE);
+    LOG_D("descriptor: %s", javaDescChars);
+    std::string retVal(javaDescChars);
+    (*env).ReleaseStringUTFChars(utfString, javaDescChars);
+//    (*env).DeleteLocalRef(utfString);
+//    (*env).DeleteLocalRef(cClass);
+    return retVal;
+}
+
+jarray VmMethod::allocArray(s4 len, u4 idx) const {
+    std::string clazzName = this->dexFile->dexStringById(idx);
+    LOG_D("--- resolving class %s (idx=%u referrer=%s)", clazzName.data(), idx,
+          this->clazzDescriptor);
+    assert(clazzName[0] == '[');
+    jclass elementClazz;
+    jarray retValue;
+    switch (clazzName[1]) {
+        case 'I':
+            return (*VM_CONTEXT::env).NewIntArray(len);
+        case 'C':
+            return (*VM_CONTEXT::env).NewCharArray(len);
+        case 'B':
+            return (*VM_CONTEXT::env).NewByteArray(len);
+        case 'Z':
+            return (*VM_CONTEXT::env).NewBooleanArray(len);
+        case 'F':
+            return (*VM_CONTEXT::env).NewFloatArray(len);
+        case 'D':
+            return (*VM_CONTEXT::env).NewDoubleArray(len);
+        case 'S':
+            return (*VM_CONTEXT::env).NewShortArray(len);
+        case 'J':
+            return (*VM_CONTEXT::env).NewLongArray(len);
+        case '[':
+            elementClazz = (*VM_CONTEXT::env).FindClass(
+                    clazzName.substr(1, clazzName.size() - 1).data());
+            if (elementClazz == nullptr) { return nullptr; }
+            retValue = (*VM_CONTEXT::env).NewObjectArray(len, elementClazz, nullptr);
+//            (*VM_CONTEXT::env).DeleteLocalRef(elementClazz);
+            return retValue;
+        case 'L':
+            elementClazz = (*VM_CONTEXT::env).FindClass(
+                    clazzName.substr(2, clazzName.size() - 3).data());
+            if (elementClazz == nullptr) { return nullptr; }
+            retValue = (*VM_CONTEXT::env).NewObjectArray(len, elementClazz, nullptr);
+//            (*VM_CONTEXT::env).DeleteLocalRef(elementClazz);
+            return retValue;
+        default:
+            LOG_E("Unknown primitive type '%s'", clazzName.data() + 1);
+            return nullptr;
+    }
+}
+
 VmMethodContext::VmMethodContext(jobject caller, const VmMethod *method,
-                                 const jvalue *pResult, va_list param) {
+                                 jvalue *pResult, va_list param) {
     this->method = method;
     this->caller = caller;
-    this->result = pResult;
-    this->reg_len = method->code->registersSize;
-    this->reg = (RegValue *) malloc(sizeof(RegValue) * this->reg_len);
+    this->retVal = pResult;
+    this->reg = (RegValue *) malloc(sizeof(RegValue) * (method->code->registersSize));
     this->pc = 0;
 
     // 参数入寄存器
