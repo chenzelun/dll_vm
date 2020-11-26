@@ -40,18 +40,6 @@ public:
 
     bool run(VmMethodContext *vmc);
 };
-
-#define GET_REGISTER(off)               (vmc->reg[off].u4)
-#define SET_REGISTER(off, val)          (vmc->reg[off].u4 = (uint32_t)(val))
-
-#define GET_REGISTER_INT(off)           (vmc->reg[off].i)
-
-#define GET_REGISTER_WIDE(off)          (vmc->reg[off].u8)
-#define SET_REGISTER_WIDE(off, val)     (vmc->reg[off].u8 = (uint64_t)(val))
-
-#define GET_REGISTER_AS_OBJECT(off)          (vmc->reg[off].l)
-#define SET_REGISTER_AS_OBJECT(off, val)     (vmc->reg[off].l = (jobject)(val))
-
 // Standard Interpret's code handler
 
 class CH_NOP : public CodeHandler {

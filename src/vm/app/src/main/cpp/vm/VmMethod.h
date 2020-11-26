@@ -75,35 +75,15 @@ public:
         return &this->pMethodIds[idx];
     }
 
+    /* return the FieldId with the specified index */
+    inline const DexFieldId *dexGetFieldId(u4 idx) {
+        assert(idx < this->pHeader->fieldIdsSize);
+        return &this->pFieldIds[idx];
+    }
+
     static bool isStaticMethod(const u4 accessFlags) {
         return (accessFlags & ACC_STATIC) != 0;
     }
-};
-
-class VmMethod {
-public:
-    uint32_t method_id;
-    DexFile *dexFile;
-    const char *name;
-    const char *clazzDescriptor;
-    const DexProtoId *protoId;
-    u4 accessFlags;
-    CodeItemData *code;
-
-public:
-    VmMethod(jmethodID jniMethod);
-
-    void updateCode();
-
-    jstring resolveString(u4 idx) const;
-
-    jclass resolveClass(u4 idx) const;
-
-    jarray allocArray(const s4 len, u4 idx) const;
-
-    static std::string getClassDescriptorByJClass(jclass clazz);
-
-
 };
 
 union RegValue {
@@ -138,6 +118,36 @@ union RegValue {
     jthrowable lt;
 };
 
+class VmMethod {
+public:
+    uint32_t method_id;
+    DexFile *dexFile;
+    const char *name;
+    const char *clazzDescriptor;
+    const DexProtoId *protoId;
+    u4 accessFlags;
+    CodeItemData *code;
+
+public:
+    VmMethod(jmethodID jniMethod);
+
+    void updateCode();
+
+    jstring resolveString(u4 idx) const;
+
+    jclass resolveClass(u4 idx) const;
+
+    bool resolveField(u4 idx, jobject obj, RegValue *retVal) const;
+
+    const char *resolveFieldName(u4 idx) const;
+
+    bool resolveSetField(u4 idx, jobject obj, const RegValue *val) const;
+
+    jarray allocArray(const s4 len, u4 idx) const;
+
+    static std::string getClassDescriptorByJClass(jclass clazz);
+};
+
 class VmMethodContext {
 public:
     const VmMethod *method;
@@ -147,7 +157,7 @@ public:
     uint16_t src1 = 0, src2 = 0, dst = 0;
     jvalue *retVal;
     jthrowable curException = nullptr;
-    RegValue tmp{};
+    RegValue tmp1{}, tmp2{};
 
 private:
     uint16_t pc;
@@ -199,6 +209,42 @@ public:
         s4 data_off = this->pc + off;
         assert(0 <= data_off && data_off <= this->method->code->insnsSize);
         return this->method->code->insns + data_off;
+    }
+
+    inline u4 getRegister(uint32_t off) {
+        return this->reg[off].u4;
+    }
+
+    inline void setRegister(uint32_t off, u4 val) {
+        this->reg[off].u4 = val;
+    }
+
+    inline jint getRegisterInt(uint32_t off) {
+        return this->reg[off].i;
+    }
+
+    inline u8 getRegisterWide(uint32_t off) {
+        return this->reg[off].u8;
+    }
+
+    inline void setRegisterWide(uint32_t off, u8 val) {
+        this->reg[off].u8 = val;
+    }
+
+    inline jobject getRegisterAsObject(uint32_t off) {
+        return this->reg[off].l;
+    }
+
+    inline void setRegisterAsObject(uint32_t off, jobject val) {
+        this->reg[off].l = val;
+    }
+
+    inline jfloat getRegisterFloat(uint32_t off) {
+        return this->reg[off].f;
+    }
+
+    inline jfloat getRegisterDouble(uint32_t off) {
+        return this->reg[off].f;
     }
 };
 

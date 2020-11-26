@@ -174,6 +174,10 @@ struct VM_REFLECT {
                      "getName",
                      "()Ljava/lang/String;");
 
+    DEFINE_NAME_SIGN(Field_set,
+                     "set",
+                     "(Ljava/lang/Object;Ljava/lang/Object;)V");
+
 
 
 
@@ -197,7 +201,7 @@ struct VM_REFLECT {
     DEFINE_CLASS_NAME_SIGN(NullPointerException, "java/lang/NullPointerException");
     DEFINE_CLASS_NAME_SIGN(ClassCastException, "java/lang/ClassCastException");
     DEFINE_CLASS_NAME_SIGN(NegativeArraySizeException,
-            "java/lang/NegativeArraySizeException");
+                           "java/lang/NegativeArraySizeException");
     DEFINE_CLASS_NAME_SIGN(RuntimeException, "java/lang/RuntimeException");
     DEFINE_CLASS_NAME_SIGN(InternalError, "java/lang/InternalError");
     DEFINE_CLASS_NAME_SIGN(ArrayIndexOutOfBoundsException,

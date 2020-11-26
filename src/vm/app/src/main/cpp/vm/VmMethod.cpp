@@ -119,6 +119,179 @@ jarray VmMethod::allocArray(s4 len, u4 idx) const {
     }
 }
 
+/**
+ * resolve static field or obj's field.
+ * static field: obj == nullptr
+ * obj's field:  obj != nullptr
+ * @param idx: FieldId
+ * @param obj: obj
+ * @param retVal: the value of field
+ * @return true or false. If false, must catch exception.
+ */
+bool VmMethod::resolveField(u4 idx, jobject obj, RegValue *retVal) const {
+    LOG_D("--- resolving field %u (referrer=%s)",
+          idx, this->clazzDescriptor);
+    JNIEnv *env = VM_CONTEXT::env;
+    const DexFieldId *pFieldId = this->dexFile->dexGetFieldId(idx);
+    jclass resClazz = this->resolveClass(pFieldId->classIdx);
+    if (resClazz == nullptr) {
+        LOG_E("can't found class: %s", VmMethod::getClassDescriptorByJClass(resClazz).data());
+        return false;
+    }
+    const char *fName = this->dexFile->dexStringById(pFieldId->nameIdx);
+    const char *fSign = this->dexFile->dexStringByTypeIdx(pFieldId->typeIdx);
+    jfieldID resField = nullptr;
+    if (obj == nullptr) {
+        resField = (*env).GetStaticFieldID(resClazz, fName, fSign);
+    } else {
+        resField = (*env).GetFieldID(resClazz, fName, fSign);
+    }
+    if (resField == nullptr) {
+        LOG_E("can't found field: %s in class: %s",
+              fName, VmMethod::getClassDescriptorByJClass(resClazz).data());
+        return false;
+    }
+    switch (fSign[0]) {
+        case 'I':
+            retVal->i = obj == nullptr ? (*env).GetStaticIntField(resClazz, resField)
+                                       : (*env).GetIntField(obj, resField);
+            break;
+        case 'F':
+            retVal->f = obj == nullptr ? (*env).GetStaticFloatField(resClazz, resField)
+                                       : (*env).GetFloatField(obj, resField);
+            break;
+        case 'Z':
+            retVal->z = obj == nullptr ? (*env).GetStaticBooleanField(resClazz, resField)
+                                       : (*env).GetBooleanField(obj, resField);
+            break;
+        case 'B':
+            retVal->b = obj == nullptr ? (*env).GetStaticByteField(resClazz, resField)
+                                       : (*env).GetByteField(obj, resField);
+            break;
+        case 'C':
+            retVal->c = obj == nullptr ? (*env).GetStaticCharField(resClazz, resField)
+                                       : (*env).GetCharField(obj, resField);
+            break;
+        case 'S':
+            retVal->s = obj == nullptr ? (*env).GetStaticShortField(resClazz, resField)
+                                       : (*env).GetShortField(obj, resField);
+            break;
+        case 'J':
+            retVal->j = obj == nullptr ? (*env).GetStaticLongField(resClazz, resField)
+                                       : (*env).GetLongField(obj, resField);
+            break;
+        case 'D':
+            retVal->d = obj == nullptr ? (*env).GetStaticDoubleField(resClazz, resField)
+                                       : (*env).GetDoubleField(obj, resField);
+            break;
+        case '[':
+        case 'L':
+            retVal->l = obj == nullptr ? (*env).GetStaticObjectField(resClazz, resField)
+                                       : (*env).GetObjectField(obj, resField);
+            break;
+
+        default:
+            LOG_E("error type of field...");
+//            (*env).DeleteLocalRef(resClazz);
+            throw VMException("error type of field... cc");
+    }
+//    (*env).DeleteLocalRef(resClazz);
+    LOG_D("--- resolving field %s (referrer=%s)",
+          fName, this->clazzDescriptor);
+    return true;
+}
+
+const char *VmMethod::resolveFieldName(u4 idx) const {
+    const DexFieldId *pFieldId = this->dexFile->dexGetFieldId(idx);
+    LOG_D("--- resolving field %s (referrer=%s)",
+          this->dexFile->dexStringById(pFieldId->nameIdx), this->clazzDescriptor);
+    return this->dexFile->dexStringById(pFieldId->nameIdx);
+}
+
+bool VmMethod::resolveSetField(u4 idx, jobject obj, const RegValue *val) const {
+    LOG_D("--- resolving field %u (referrer=%s)",
+          idx, this->clazzDescriptor);
+    JNIEnv *env = VM_CONTEXT::env;
+    const DexFieldId *pFieldId = this->dexFile->dexGetFieldId(idx);
+    jclass resClazz = this->resolveClass(pFieldId->classIdx);
+    if (resClazz == nullptr) {
+        LOG_E("can't found class: %s", VmMethod::getClassDescriptorByJClass(resClazz).data());
+        return false;
+    }
+    const char *fName = this->dexFile->dexStringById(pFieldId->nameIdx);
+    const char *fSign = this->dexFile->dexStringByTypeIdx(pFieldId->typeIdx);
+    jfieldID resField = nullptr;
+    if (obj == nullptr) {
+        resField = (*env).GetStaticFieldID(resClazz, fName, fSign);
+    } else {
+        resField = (*env).GetFieldID(resClazz, fName, fSign);
+    }
+    if (resField == nullptr) {
+        LOG_E("can't found field: %s in class: %s",
+              fName, VmMethod::getClassDescriptorByJClass(resClazz).data());
+        return false;
+    }
+    switch (fSign[0]) {
+        case 'I':
+            obj == nullptr ? (*env).SetStaticIntField(resClazz, resField, val->i)
+                           : (*env).SetIntField(obj, resField, val->i);
+            break;
+        case 'F':
+            obj == nullptr ? (*env).SetStaticFloatField(resClazz, resField, val->f)
+                           : (*env).SetFloatField(obj, resField, val->f);
+            break;
+        case 'Z':
+            obj == nullptr ? (*env).SetStaticBooleanField(resClazz, resField, val->z)
+                           : (*env).SetBooleanField(obj, resField, val->z);
+            break;
+        case 'B':
+            obj == nullptr ? (*env).SetStaticByteField(resClazz, resField, val->b)
+                           : (*env).SetByteField(obj, resField, val->b);
+            break;
+        case 'C':
+            obj == nullptr ? (*env).SetStaticCharField(resClazz, resField, val->c)
+                           : (*env).SetCharField(obj, resField, val->c);
+            break;
+        case 'S':
+            obj == nullptr ? (*env).SetStaticShortField(resClazz, resField, val->s)
+                           : (*env).SetShortField(obj, resField, val->s);
+            break;
+        case 'J':
+            obj == nullptr ? (*env).SetStaticLongField(resClazz, resField, val->j)
+                           : (*env).SetLongField(obj, resField, val->j);
+            break;
+        case 'D':
+            obj == nullptr ? (*env).SetStaticDoubleField(resClazz, resField, val->d)
+                           : (*env).SetDoubleField(obj, resField, val->d);
+            break;
+        case '[':
+            if (fSign[1] == 'L') {
+                jobject resFieldJava = (*env).ToReflectedField(
+                        resClazz, resField, (jboolean) (obj == nullptr));
+                jclass cField = (*env).GetObjectClass(resFieldJava);
+                jmethodID mFieldSet = (*env).GetMethodID(
+                        cField, VM_REFLECT::NAME_Field_set, VM_REFLECT::SIGN_Field_set);
+                (*env).CallVoidMethod(resFieldJava, mFieldSet, obj, val->l);
+                break;
+            }
+            // no break
+
+        case 'L':
+            obj == nullptr ? (*env).SetStaticObjectField(resClazz, resField, val->l)
+                           : (*env).SetObjectField(obj, resField, val->l);
+            break;
+
+        default:
+            LOG_E("error type of field...");
+//            (*env).DeleteLocalRef(resClazz);
+            throw VMException("error type of field... cc");
+    }
+//    (*env).DeleteLocalRef(resClazz);
+    LOG_D("--- resolving field %s (referrer=%s)",
+          fName, this->clazzDescriptor);
+    return true;
+}
+
 VmMethodContext::VmMethodContext(jobject caller, const VmMethod *method,
                                  jvalue *pResult, va_list param) {
     this->method = method;
