@@ -19,8 +19,8 @@ class DexFileModifier:
         self.vm_data = vm_data
 
     @staticmethod
-    def parse_dex_file(dex_path: str):
-        return DexFileModifier(DexFile.parse_file(dex_path))
+    def parse_dex_file(dex_path: str, vm_data: VmDataFile = None):
+        return DexFileModifier(DexFile.parse_file(dex_path), vm_data)
 
     def native_key_func(self, key_function_defined_path: str, out_path: str):
         key_func = self.__key_func_encoded_method(key_function_defined_path)
@@ -31,11 +31,11 @@ class DexFileModifier:
             code_file.add_method(em)
             # set bit on: AccessFlag.ACC_NATIVE
             em.access_flags |= dex_file.AccessFlag.ACC_NATIVE.value
+            # don't write code in dex file
+            em.code.disable = True
             # delete code from encoded method
             em.code = None
             em.code_off = 0
-            # don't write code in dex file
-            em.code.disable = True
             # create jni method
             jni_file.add_method(em)
 
@@ -56,48 +56,63 @@ class DexFileModifier:
 
             name = DexFile.wrap_to_class_name(
                 self.dex.get_type_name_by_idx(class_def.class_id))
-            ret_flag = False
+            if name.find(r'.R$') != -1 or \
+                    name.endswith(r'.BuildConfig') or \
+                    name.endswith(r'.R'):
+                continue
+
+            cur_ret: List[dex_file.EncodedMethod] = []
+            need_to_del = []
             for c in keys.clazz:
                 if not name.startswith(c):
                     continue
 
-                ret.extend(class_def.class_data.virtual_methods)
-                ret.extend(class_def.class_data.direct_methods)
-                ret_flag = True
-                keys.clazz.remove(c)
+                # ret.extend(class_def.class_data.virtual_methods)
+                # ret.extend(class_def.class_data.direct_methods)
+                for m in class_def.class_data.virtual_methods:
+                    if m.code:
+                        cur_ret.append(m)
+                for m in class_def.class_data.direct_methods:
+                    if m.code:
+                        cur_ret.append(m)
+
+                if name == c:
+                    need_to_del.append(name)
                 break
 
-            if ret_flag:
+            if cur_ret:
                 # add all methods by class name.
+                ret.extend(self.filter_java_init_func(cur_ret))
+                for d in need_to_del:
+                    keys.clazz.remove(d)
                 continue
 
             for m in keys.method:
                 if not name.startswith(m.clazz):
                     continue
-                r = self.__key_func_filter_encoded_method(
+                cur_ret = self.__key_func_filter_encoded_method(
                     class_def.class_data.virtual_methods, m)
-                if r:
-                    ret.extend(r)
+                if cur_ret:
                     if m.sign:
                         # only one, needn't find direct_methods
                         # add a method by method sign
-                        keys.method.remove(m)
+                        need_to_del.append(m)
+                        ret.extend(self.filter_java_init_func(cur_ret))
                         continue
-                    else:
-                        ret_flag = True
 
-                r = self.__key_func_filter_encoded_method(
-                    class_def.class_data.direct_methods, m)
-                if r:
-                    ret.extend(r)
-                    ret_flag = True
-                if ret_flag:
-                    keys.method.remove(m)
+                cur_ret.extend(self.__key_func_filter_encoded_method(
+                    class_def.class_data.direct_methods, m))
+                if cur_ret:
+                    ret.extend(self.filter_java_init_func(cur_ret))
+                    need_to_del.append(m)
+
+            for d in need_to_del:
+                keys.method.remove(d)
 
             if not keys.method and not keys.clazz:
                 break
 
-        assert not keys.method and not keys.clazz
+        assert not keys.method
         return ret
 
     def __key_func_filter_encoded_method(
@@ -120,6 +135,15 @@ class DexFileModifier:
             else:
                 ret.append(em)
 
+        return ret
+
+    def filter_java_init_func(self, func: List[dex_file.EncodedMethod]) \
+            -> List[dex_file.EncodedMethod]:
+        ret: List[dex_file.EncodedMethod] = []
+        for em in func:
+            func_name = self.dex.get_method_name(em.method_idx)
+            if func_name not in {r'<clinit>', r'<init>'}:
+                ret.append(em)
         return ret
 
     def get_class_names_by_super_class_name(self, super_name: str) -> List[str]:

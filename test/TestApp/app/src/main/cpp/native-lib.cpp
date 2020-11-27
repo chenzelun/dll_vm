@@ -12,5 +12,14 @@ Java_com_dalunlun_testapp_MainActivity_stringFromJNI(
         jobject obj /* this */) {
     std::string hello = "Hello from C++";
     LOG_D("dalunlun: %p", obj);
+
+    jvalue val[2];
+    val[0].l = (*env).NewStringUTF("hello");
+    val[1].l = (*env).NewStringUTF("world");
+    jclass jclass1 = (*env).GetObjectClass(obj);
+    jmethodID jmethodId = (*env).GetMethodID(jclass1,
+            "test", "(Ljava/lang/String;Ljava/lang/String;)V");
+    (*env).CallVoidMethodA(obj, jmethodId, val);
+
     return env->NewStringUTF(hello.c_str());
 }

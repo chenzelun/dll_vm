@@ -39,7 +39,7 @@ class KeyFunctionDefined:
         for line in data_lines:
             if line == '' or line.startswith(r'//'):
                 continue
-            elif line.startswith(last):
+            elif last != '' and line.startswith(last):
                 continue
 
             if line.find(r':') != -1:

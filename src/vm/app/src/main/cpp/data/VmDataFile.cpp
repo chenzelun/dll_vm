@@ -7,6 +7,8 @@
 #include "../common/VmConstant.h"
 
 VDF_KeyValueData::VDF_KeyValueData(const uint8_t *pr) {
+    this->key = nullptr;
+    this->val = nullptr;
     this->reset(pr);
 }
 
@@ -25,6 +27,9 @@ void VDF_KeyValueData::reset(const uint8_t *pr) {
 }
 
 VDF_FileData::VDF_FileData(const uint8_t *pr) {
+    this->data = nullptr;
+    this->data_size = 0;
+    this->name = nullptr;
     this->reset(pr);
 }
 
@@ -36,7 +41,7 @@ uint32_t VDF_FileData::getDataSize() const {
     return this->data_size;
 }
 
-const uint8_t * VDF_FileData::getData() const {
+const uint8_t *VDF_FileData::getData() const {
     return this->data;
 }
 
@@ -51,6 +56,15 @@ VmDataFile::VmDataFile(const uint8_t *pr, uint32_t fileSize) {
     this->end = pr + fileSize;
     this->header = (VDF_Header *) this->end - 1;
     this->index = (VDF_Index *) this->header - this->header->index_size;
+
+    LOG_D("fileSize: 0x%08x", fileSize);
+    LOG_D("index_size: 0x%08x", header->index_size);
+    for (int i = 0; i < header->index_size; ++i) {
+        const VDF_Index *cur = this->index + i;
+        LOG_D("index[%d].type: %s", i,
+              cur->type == VDF_DataType::TYPE_KEY_VALUE ? "Key-Value" : "File");
+        // TODO
+    }
 }
 
 bool VmDataFile::findValByKey(const std::string &key, VDF_KeyValueData &retVal) const {

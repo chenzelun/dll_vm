@@ -29,6 +29,7 @@
   Additional:
   + [ ] zip my data file
   + [ ] opt reg memory
+  + [ ] register key functions dynamically and hide the map
   
 
 ## git log

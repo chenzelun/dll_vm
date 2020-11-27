@@ -68,7 +68,7 @@ class Apk:
     @staticmethod
     def build(apk_root_path: str) -> bool:
         task = Popen([os.path.join(apk_root_path, r'gradlew'),
-                      'clean', 'assembleDebug', '--info', '--stacktrace'],
+                      'clean', 'assembleRelease', '--info', '--stacktrace'],
                      stdout=PIPE, stderr=PIPE, cwd=apk_root_path)
         out, err = Cmd.run_and_wait(task)
         if not err and r'BUILD SUCCESSFUL' in out:
@@ -77,23 +77,35 @@ class Apk:
             return False
 
     @staticmethod
-    def install(apk_path):
+    def install(apk_path, adb_path: str = None):
+        if not adb_path:
+            adb_path = r'adb'
+        elif not adb_path.endswith('adb'):
+            os.path.join(adb_path, 'adb')
         task = Popen(
-            ['adb', 'install', '-r', '-t', apk_path],
+            [adb_path, 'install', '-r', '-t', apk_path],
             stdout=PIPE, stderr=PIPE)
         Cmd.run_and_wait(task)
 
     @staticmethod
-    def start(pkg_name):
+    def start(pkg_name, adb_path: str = None):
+        if not adb_path:
+            adb_path = r'adb'
+        elif not adb_path.endswith('adb'):
+            os.path.join(adb_path, 'adb')
         task = Popen(
-            ['adb', 'shell', 'am', 'start', pkg_name + '/.MainActivity'],
+            [adb_path, 'shell', 'am', 'start', pkg_name + '/.MainActivity'],
             stdout=PIPE, stderr=PIPE)
         Cmd.run_and_wait(task)
 
     @staticmethod
-    def uninstall(pkg_name):
+    def uninstall(pkg_name, adb_path: str = None):
+        if not adb_path:
+            adb_path = r'adb'
+        elif not adb_path.endswith('adb'):
+            os.path.join(adb_path, 'adb')
         task = Popen(
-            ['adb', 'uninstall', pkg_name],
+            [adb_path, 'uninstall', pkg_name],
             stdout=PIPE, stderr=PIPE)
         Cmd.run_and_wait(task)
 

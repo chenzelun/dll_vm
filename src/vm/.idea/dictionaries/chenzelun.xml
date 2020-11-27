@@ -5,6 +5,7 @@
       <w>aget</w>
       <w>androidsource</w>
       <w>aput</w>
+      <w>dalunlun</w>
       <w>defs</w>
       <w>descr</w>
       <w>ident</w>
@@ -12,7 +13,9 @@
       <w>insns</w>
       <w>iput</w>
       <w>jclass</w>
+      <w>keyfuncjni</w>
       <w>landroid</w>
+      <w>lcom</w>
       <w>ldalvik</w>
       <w>ljava</w>
       <w>odex</w>

@@ -2,6 +2,8 @@ import logging
 from datetime import date
 from typing import List, Union
 
+from werkzeug.routing import Map
+
 import env
 from shell.common.utils import Debugger, Log
 from shell.dex import dex_file
@@ -12,6 +14,7 @@ class VmKeyFuncJniFile:
     def __init__(self, dex: DexFile):
         self.all_methods: List[dex_file.EncodedMethod] = []
         self.dex = dex
+        self.key_func_map: Map[int, str] = {}
 
         self.block = 0
         self.log = logging.getLogger(VmKeyFuncJniFile.__name__)
