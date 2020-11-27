@@ -12,7 +12,7 @@
   + [x] design a new format of data file
   + [x] main shell step
   + [x] main vm code about setup system
-  + [ ] test repackaged App
+  + [x] test repackaged App
   + [x] change java method to native method
   + [ ] add vm interpreter
   + [ ] test base vmp's App
@@ -29,6 +29,7 @@
   Additional:
   + [ ] zip my data file
   + [ ] opt reg memory
+  + [ ] register key functions dynamically and hide the map
   
 
 ## git log

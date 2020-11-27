@@ -27,4 +27,8 @@ public class MainActivity extends AppCompatActivity {
      * which is packaged with this application.
      */
     public native String stringFromJNI();
+
+    public void test(String a, String b) {
+        System.out.println(a + b);
+    }
 }

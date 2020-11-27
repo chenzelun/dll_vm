@@ -6,6 +6,7 @@ import zipfile
 
 import env
 from lib.AXMLUtil.axml import AndroidXML
+from lib.apktool.apktool import ApkTool
 from shell.common.utils import Apk, Log
 from shell.data.vm_data import VmDataFile
 from shell.dex.modifier import DexFileModifier
@@ -19,8 +20,6 @@ class Shell:
         self.test_app_package_name = ''
 
         self.vm_path = os.path.join(env.TMP_ROOT, r'vm')
-        self.key_func_dir_path = os.path.join(
-            self.vm_path, r'app', r'src', r'main', r'cpp')
 
         self.dest_path_root = os.path.join(env.TMP_ROOT, r'dest_root')
         self.dest_path = os.path.join(self.dest_path_root, r'dest')
@@ -94,10 +93,14 @@ class Shell:
         application_name = application_name[0]
         self.log.info("vm app application_name: " + application_name)
 
-        # change application name
         dest_manifest_path = os.path.join(self.dest_path, r'AndroidManifest.xml')
+        tmp_manifest_path = test_manifest_path + '.xml'
+        # change application name
         AndroidXML.modify_attr(r'application', r'package', r'name', application_name,
-                               test_manifest_path, dest_manifest_path)
+                               test_manifest_path, tmp_manifest_path)
+        # delete attr: android:appComponentFactory="androidx.core.app.CoreComponentFactory"
+        AndroidXML.remove_attr(r'application', r'package', r'appComponentFactory',
+                               tmp_manifest_path, dest_manifest_path)
 
         # log
         self.log.debug("test app android manifest xml: " + test_manifest_path)
@@ -131,16 +134,16 @@ class Shell:
 
         apk_path = os.path.join(app_root, r'app',
                                 r'build', r'outputs', r'apk',
-                                r'debug', r'app-debug.apk')
+                                r'release', r'app-release-unsigned.apk')
         zipfile.ZipFile(apk_path).extractall(dest_path)
 
     @Log.log_function
     def virtual_dex_file(self):
         dex_file_name = r'classes.dex'
         test_dex_path = os.path.join(self.test_path, dex_file_name)
-        modifier = DexFileModifier.parse_dex_file(test_dex_path)
+        modifier = DexFileModifier.parse_dex_file(test_dex_path, self.vm_data_file)
         modifier.native_key_func(env.RES_KEY_FUNCTIONS_DEFINED_PATH,
-                                 self.key_func_dir_path)
+                                 env.KEY_FUNC_JNI_ROOT)
         dex_file_buf = modifier.dex.to_bytes()
         self.vm_data_file.add_file(dex_file_name, dex_file_buf)
 
@@ -154,7 +157,7 @@ class Shell:
                 shutil.copytree(os.path.join(self.test_path, file_name),
                                 os.path.join(self.dest_path, file_name))
             else:
-                if file_name == r'AndroidManifest.xml' or \
+                if file_name.startswith(r'AndroidManifest.xml') or \
                         (file_name.endswith('.dex') and
                          os.path.isfile(os.path.join(self.test_path, file_name))):
                     continue
@@ -173,10 +176,17 @@ class Shell:
         os.rename(apk_zip_path, dest_unsigned_apk_path)
         self.log.debug(r'dest_unsigned_apk_path: ' + dest_unsigned_apk_path)
 
+        # apktool decode and build
+        # if not, Android system can't set ShellApplication
+        dest_unsigned_apk_decode_path = self.dest_path + r'_decode'
+        dest_unsigned_apk_build_path = self.dest_path + r'_build_unsigned.apk'
+        ApkTool.decode(dest_unsigned_apk_path, dest_unsigned_apk_decode_path)
+        ApkTool.build(dest_unsigned_apk_decode_path, dest_unsigned_apk_build_path)
+
         # sign
         if os.path.exists(self.dest_apk_path):
             os.remove(self.dest_apk_path)
-        Apk.sign(r'123456', r'dll', r'654321', dest_unsigned_apk_path, self.dest_apk_path)
+        Apk.sign(r'123456', r'dll', r'654321', dest_unsigned_apk_build_path, self.dest_apk_path)
         self.log.info(r'new signed apk: ' + self.dest_apk_path)
 
     @Log.log_function

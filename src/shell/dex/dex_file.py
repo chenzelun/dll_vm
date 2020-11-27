@@ -1499,7 +1499,7 @@ class EncodedMethod(Writeable):
 
     @Pointer.update_pointer
     def to_bytes(self, buf: bytearray, pr: Pointer):
-        assert self.method_idx_diff > 0
+        assert self.method_idx_diff >= 0
         self.code_off = self.code.offset if self.code else 0
         buf.extend(Leb128.write_unsigned_leb128(self.method_idx_diff))
         buf.extend(Leb128.write_unsigned_leb128(self.access_flags))
@@ -1525,7 +1525,7 @@ class EncodedField(Writeable):
 
     @Pointer.update_pointer
     def to_bytes(self, buf: bytearray, pr: Pointer):
-        assert self.field_idx_diff > 0
+        assert self.field_idx_diff >= 0
         buf.extend(Leb128.write_unsigned_leb128(self.field_idx_diff))
         buf.extend(Leb128.write_unsigned_leb128(self.access_flags))
 
@@ -2088,7 +2088,7 @@ class DexFile:
     def get_class_name_by_method_id(self, method_id: int) -> str:
         method_pool = self.map_list.map[MapListItemType.TYPE_METHOD_ID_ITEM].data
         method: MethodIdItem = method_pool.get_item(method_id)
-        return self.get_class_name_by_method_id(method.class_id)
+        return self.get_type_name_by_idx(method.class_id)
 
     def get_method_param_short_names(self, method_id: int) -> str:
         return self.get_method_short(method_id)[1:]
