@@ -25,8 +25,6 @@ public:
 
     static void initVm();
 
-    static void updateNativeLibraryDirectories();
-
     static void loadDexFromMemory();
 
     static void changeTopApplication();

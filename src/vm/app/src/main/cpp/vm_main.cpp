@@ -29,7 +29,6 @@ jint JNI_OnLoad(JavaVM *vm, void *unused) {
     VM_CONTEXT::initVmKeyFuncCodeFileOfVC(); // may be sub process.
     VM_CONTEXT::initVm();
 
-    VM_CONTEXT::updateNativeLibraryDirectories();
     VM_CONTEXT::loadDexFromMemory();
     VM_CONTEXT::changeTopApplication();
 

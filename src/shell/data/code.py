@@ -1,4 +1,5 @@
 import hashlib
+import logging
 import zlib
 from abc import abstractmethod, ABCMeta
 from struct import pack
@@ -79,6 +80,8 @@ class VmKeyFuncCodeFile:
         self.index: List[VKFC_Index] = []
         self.code: List[VKFC_Code] = []
 
+        self.log = logging.getLogger(VmKeyFuncCodeFile.__name__)
+
     def add_method(self, method: dex_file.EncodedMethod):
         code = VKFC_Code(method.code.wrap_to_key_func())
         self.code.append(code)
@@ -91,6 +94,7 @@ class VmKeyFuncCodeFile:
         for d in self.code:
             d.to_bytes(buf, pr)
         for i in self.index:
+            i.code_offset = i.code.offset
             i.to_bytes(buf, pr)
 
         self.header.index_size = len(self.index)

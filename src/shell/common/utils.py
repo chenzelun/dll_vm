@@ -2,6 +2,7 @@ import logging
 import os
 from functools import wraps
 from subprocess import Popen, PIPE
+from typing import Set, Union
 
 import chardet
 
@@ -151,7 +152,9 @@ class Log:
             if 'log' not in obj.__dict__:
                 raise RuntimeWarning(r"can't find a field named 'log'.")
             obj.log.debug("enter function: " + func.__name__)
+
             ret = func(*args, **kwargs)
+
             if ret:
                 obj.log.debug("ret value: ")
                 obj.log.debug(ret)
@@ -159,6 +162,49 @@ class Log:
             return ret
 
         return wrapper
+
+    @staticmethod
+    def log_function_with_params(
+            is_static: bool, *,
+            include: Set[Union[int, str]] = None,
+            exclude: Set[Union[int, str]] = None):
+        def function_wrapper(func):
+            @wraps(func)
+            def wrapper(*args, **kwargs):
+                obj = ReflectHelper.get_var_by_index(0, *args, **kwargs)
+                if 'log' not in obj.__dict__:
+                    raise RuntimeWarning(r"can't find a field named 'log'.")
+                obj.log.debug("enter function: " + func.__name__)
+                is_include_flag = True if include else False
+                log_args = args if is_static else args[1:]
+                for i, v in enumerate(log_args):
+                    if include or exclude:
+                        if is_include_flag and i not in include:
+                            continue
+                        elif not is_include_flag and i in exclude:
+                            continue
+
+                    obj.log.debug("param[{}]: {}".format(str(i), str(v)))
+                for k, v in kwargs.items():
+                    if include or exclude:
+                        if is_include_flag and k not in include:
+                            continue
+                        elif not is_include_flag and k in exclude:
+                            continue
+
+                    obj.log.debug("param[{}]: {}".format(str(k), str(v)))
+
+                ret = func(*args, **kwargs)
+
+                if ret:
+                    obj.log.debug("ret value: ")
+                    obj.log.debug(ret)
+                obj.log.debug("out function: " + func.__name__)
+                return ret
+
+            return wrapper
+
+        return function_wrapper
 
 
 class Pointer:

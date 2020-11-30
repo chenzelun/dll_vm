@@ -1,6 +1,6 @@
 
 //
-// Created by 陈泽伦 on 2020/11/28
+// Created by 陈泽伦 on 2020/11/30
 //
 
 #include "KeyFuncJni.h"
@@ -10,7 +10,7 @@
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_Lcom_dalunlun_testapp_MainActivity_2_onCreate__Landroid_os_Bundle_2(
+Java_com_dalunlun_testapp_MainActivity_onCreate__Landroid_os_Bundle_2(
         JNIEnv *env, jobject instance, jobject param_0) {
     
     LOG_D("jni function start: %s", __func__);
@@ -25,7 +25,7 @@ Java_Lcom_dalunlun_testapp_MainActivity_2_onCreate__Landroid_os_Bundle_2(
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_Lcom_dalunlun_testapp_MainActivity_2_test__Ljava_lang_String_2Ljava_lang_String_2(
+Java_com_dalunlun_testapp_MainActivity_test__Ljava_lang_String_2Ljava_lang_String_2(
         JNIEnv *env, jobject instance, jobject param_0, jobject param_1) {
     
     LOG_D("jni function start: %s", __func__);

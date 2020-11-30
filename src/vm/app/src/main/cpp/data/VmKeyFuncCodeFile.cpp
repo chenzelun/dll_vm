@@ -3,13 +3,14 @@
 //
 
 #include "VmKeyFuncCodeFile.h"
+#include "../common/Util.h"
 
 VmKeyFuncCodeFile::VmKeyFuncCodeFile(const uint8_t *pr, uint32_t fileSize) {
     this->base = pr;
     this->end = this->base + fileSize;
-
     this->header = (VKFC_Header *) this->end - 1;
     VKFC_Index *index = (VKFC_Index *) this->header - this->header->index_size;
+    assert(this->base <= (uint8_t *) index);
 
     for(int off = 0; off< this->header->index_size; off++){
         uint32_t method_id = index[off].method_id;
@@ -20,7 +21,7 @@ VmKeyFuncCodeFile::VmKeyFuncCodeFile(const uint8_t *pr, uint32_t fileSize) {
 
 const uint8_t *VmKeyFuncCodeFile::getCode(uint32_t method_id) const {
     auto it = this->code.find(method_id);
-    if(it!= this->code.end()){
+    if (it != this->code.end()) {
         return it->second;
     }
     return nullptr;

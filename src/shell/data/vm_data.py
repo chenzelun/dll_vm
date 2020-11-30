@@ -131,14 +131,14 @@ class VmDataFile:
         self.index: List[VDF_Index] = []
         self.data: List[Optional[VDF_FileData, VDF_KeyValueData]] = []
 
-    @Log.log_function
+    @Log.log_function_with_params(is_static=False, include={0, })
     def add_file(self, file_name: str, file_data: Union[bytes, bytearray]):
         data = VDF_FileData(file_name, file_data)
         index = VDF_Index(VDF_DataType.TYPE_FILE, data)
         self.data.append(data)
         self.index.append(index)
 
-    @Log.log_function
+    @Log.log_function_with_params(is_static=False)
     def add_key_value(self, key: str, val: str):
         data = VDF_KeyValueData(key, val)
         index = VDF_Index(VDF_DataType.TYPE_KEY_VALUE, data)
@@ -150,8 +150,17 @@ class VmDataFile:
         pr = Pointer(0)
         for d in self.data:
             d.to_bytes(buf, pr)
-        for i in self.index:
-            i.to_bytes(buf, pr)
+        for i, v in enumerate(self.index):
+            is_kv = v.type == VDF_DataType.TYPE_KEY_VALUE
+            v.data_off = v.data.offset
+            v.to_bytes(buf, pr)
+            self.log.debug("index[{}]-type: {}".format(str(i), "Key-Value" if is_kv else "File"))
+            self.log.debug("index[{}]-offset: {}".format(str(i), str(int(v.data_off))))
+            if is_kv:
+                self.log.debug("index[{}]: {}".format(v.data.key.data, v.data.val.data))
+            else:
+                self.log.debug("index[{}]-f_name: {}".format(str(i), v.data.name.data))
+                self.log.debug("index[{}]-f_size: {}".format(str(i), v.data.data_size))
 
         self.header.index_size = len(self.index)
         buf.extend(pack('<I', self.header.index_size))

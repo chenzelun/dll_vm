@@ -128,9 +128,10 @@ class Shell:
 
     @Log.log_function
     def rebuild_and_unzip(self, app_root: str, dest_path: str):
-        if not Apk.build(app_root):
-            self.log.error(r'errors about building app: ' + app_root)
-            sys.exit()
+        if dest_path != self.test_path:
+            if not Apk.build(app_root):
+                self.log.error(r'errors about building app: ' + app_root)
+                sys.exit()
 
         apk_path = os.path.join(app_root, r'app',
                                 r'build', r'outputs', r'apk',
@@ -164,8 +165,15 @@ class Shell:
                 shutil.copy(os.path.join(self.test_path, file_name), self.dest_path)
 
         # copy vm app lib
-        vm_lib_path = os.path.join(self.vm_path, r'lib')
-        shutil.copytree(vm_lib_path, self.dest_lib_path)
+        src_dir = os.path.join(self.vm_path, r'lib', r'arm64-v8a')
+        dst_dir = os.path.join(self.dest_lib_path, r'arm64-v8a')
+        if not os.path.exists(dst_dir):
+            os.makedirs(dst_dir)
+        for file_name in os.listdir(src_dir):
+            if not file_name.endswith(r'.so'):
+                continue
+            shutil.copy(os.path.join(src_dir, file_name), dst_dir)
+            self.log.debug(r'copy lib file: ' + os.path.join(src_dir, file_name))
 
     @Log.log_function
     def build_apk_and_signed(self):
@@ -192,15 +200,24 @@ class Shell:
     @Log.log_function
     def append_libs(self):
         # arm64-v8a only
-        test_lib_root = os.path.join(self.test_path, r'lib', r'arm64-v8a')
-        for root_path, _, file_names in os.walk(test_lib_root):
-            for file in file_names:
-                file_name = os.path.join(root_path, file)[len(self.test_path) + 1:]
-                file_path = os.path.join(root_path, file)
-                self.log.debug(r'append lib: ' + file_name + ', from: ' + file_path)
-                with open(file_path, 'rb') as r:
-                    file_data = r.read()
-                self.vm_data_file.add_file(file_name, file_data)
+        # test_lib_root = os.path.join(self.test_path, r'lib', r'arm64-v8a')
+        # for root_path, _, file_names in os.walk(test_lib_root):
+        #     for file in file_names:
+        #         file_path = os.path.join(root_path, file)
+        #         file_name = file_path[len(self.test_path) + len(r'/lib/'):]
+        #         self.log.debug(r'append lib: ' + file_name + ', from: ' + file_path)
+        #         with open(file_path, 'rb') as r:
+        #             file_data = r.read()
+        #         self.vm_data_file.add_file(file_name, file_data)
+        dst_dir = os.path.join(self.dest_path, r'lib', r'arm64-v8a')
+        src_dir = os.path.join(self.test_path, r'lib', r'arm64-v8a')
+        if not os.path.exists(dst_dir):
+            os.makedirs(dst_dir)
+        for file_name in os.listdir(src_dir):
+            if not file_name.endswith(r'.so'):
+                continue
+            shutil.copy(os.path.join(src_dir, file_name), dst_dir)
+            self.log.debug(r'copy lib file: ' + os.path.join(src_dir, file_name))
 
     @Log.log_function
     def build_vm_data(self):

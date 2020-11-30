@@ -31,8 +31,10 @@ class DexFileModifier:
             code_file.add_method(em)
             # set bit on: AccessFlag.ACC_NATIVE
             em.access_flags |= dex_file.AccessFlag.ACC_NATIVE.value
-            # don't write code in dex file
-            em.code.disable = True
+            # del this code in dex file
+            assert em.code
+            self.dex.map_list.map[dex_file.MapListItemType.TYPE_CODE_ITEM] \
+                .data.del_key(em.code.offset)
             # delete code from encoded method
             em.code = None
             em.code_off = 0

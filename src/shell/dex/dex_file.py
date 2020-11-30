@@ -274,10 +274,19 @@ OFFSET_POOL_TYPE = (
     MapListItemType.TYPE_ANNOTATION_SET_ITEM,
     MapListItemType.TYPE_CLASS_DATA_ITEM,
     MapListItemType.TYPE_CODE_ITEM,
+
     MapListItemType.TYPE_STRING_DATA_ITEM,
     MapListItemType.TYPE_DEBUG_INFO_ITEM,
     MapListItemType.TYPE_ANNOTATION_ITEM,
     MapListItemType.TYPE_ENCODED_ARRAY_ITEM,
+    MapListItemType.TYPE_ANNOTATION_DIRECTORY_ITEM,
+)
+
+NEED_TO_ALIGN_POOL_TYPE = (
+    MapListItemType.TYPE_TYPE_LIST_ITEM,
+    MapListItemType.TYPE_ANNOTATION_SET_REF_LIST,
+    MapListItemType.TYPE_ANNOTATION_SET_ITEM,
+    MapListItemType.TYPE_CODE_ITEM,
     MapListItemType.TYPE_ANNOTATION_DIRECTORY_ITEM,
 )
 
@@ -298,6 +307,15 @@ class Pool(Writeable):
     def get_item(self, idx: int):
         return self.__map[self.__order[idx]]
 
+    def del_item(self, idx: int):
+        return self.del_key(self.__order[idx])
+
+    def del_key(self, key: int):
+        if key not in self.__map:
+            return
+        self.__order.remove(key)
+        return self.__map.pop(key)
+
     def parse(self, buf: bytes, pr: Pointer):
         for idx in range(self.__map_item.size):
             item: Writeable = self.__val_type().parse(buf, pr)
@@ -317,9 +335,14 @@ class Pool(Writeable):
     def __contains__(self, key: int):
         return key in self.__map
 
-    @Pointer.aligned_4_with_zero
-    @Pointer.update_offset
     def to_bytes(self, buf: bytearray, pr: Pointer):
+        # align with zero
+        if self.__map_item.type in NEED_TO_ALIGN_POOL_TYPE:
+            while pr.cur & 0x03:
+                buf.append(0)
+                pr.add(1)
+        # update the offset
+        self.offset = pr.cur
         for key in self.__order:
             self.__map[key].to_bytes(buf, pr)
 
@@ -397,6 +420,7 @@ class Header(Writeable):
         pr.get_and_add(len(self))
         return self
 
+    @Pointer.aligned_4_with_zero
     @Pointer.update_offset
     @Pointer.update_pointer
     def to_bytes(self, buf: bytearray, pr: Pointer):
@@ -1400,7 +1424,6 @@ class CodeItem(Writeable):
         self.try_buf: Optional[bytearray] = None
 
         self.debug_info: Optional[DebugInfoItem] = None
-        self.disable = False
 
     @Pointer.update_offset
     def parse(self, buf: bytes, pr: Pointer):
@@ -1415,7 +1438,7 @@ class CodeItem(Writeable):
             buf_start = pr.cur
             pr.aligned(0x04, 0x02 * self.insns_size)
             for _ in range(self.tries_size):
-                TryBlock.ignore(pr)  # used parameter: buf
+                TryBlock.ignore(pr)  # unused parameter: buf
             EncodedCatchHandlerList.ignore(buf, pr)
             buf_end = pr.cur
             self.try_buf = buf[buf_start:buf_end]
@@ -1431,11 +1454,9 @@ class CodeItem(Writeable):
     @Pointer.update_offset
     @Pointer.update_pointer
     def to_bytes(self, buf: bytearray, pr: Pointer):
-        if self.disable:
-            return
-
         assert self.insns_size * 0x02 == len(self.insns)
         self.debug_info_off = self.debug_info.offset if self.debug_info else 0
+        assert self.ins_size <= self.registers_size
         buf.extend(pack('<4H2I',
                         self.registers_size,
                         self.ins_size,
@@ -1458,6 +1479,7 @@ class CodeItem(Writeable):
 
     def wrap_to_key_func(self) -> bytes:
         assert self.insns_size * 0x02 == len(self.insns)
+        assert self.ins_size <= self.registers_size
         buf = bytearray()
         buf.extend(pack('<4H2I',
                         self.registers_size,
@@ -1775,8 +1797,9 @@ class MapList(Writeable):
         self.map[MapListItemType.TYPE_MAP_LIST].data_offset = self.offset
         buf.extend(pack('<I', self.size))
         pr.add(0x04)
-        for item_type in sorted(self.map.keys()):
-            self.map[item_type].to_bytes(buf, pr)
+        sorted_list = sorted(self.map.values(), key=lambda it: it.data_offset)
+        for mapItem in sorted_list:
+            mapItem.to_bytes(buf, pr)
 
     @staticmethod
     def get_item_and_add(pool_type: MapListItemType, key: int, value_type: type, buf: bytes):
@@ -2005,7 +2028,7 @@ class DexFile:
         # map list
         item = self.map_list.map[MapListItemType.TYPE_MAP_LIST]
         item.offset = self.map_list.offset
-        item.size = self.map_list.size
+        item.size = 1
 
         # other
         for item_type, map_item in self.map_list.map.items():
@@ -2088,7 +2111,7 @@ class DexFile:
     def get_class_name_by_method_id(self, method_id: int) -> str:
         method_pool = self.map_list.map[MapListItemType.TYPE_METHOD_ID_ITEM].data
         method: MethodIdItem = method_pool.get_item(method_id)
-        return self.get_type_name_by_idx(method.class_id)
+        return DexFile.wrap_to_class_name(self.get_type_name_by_idx(method.class_id))
 
     def get_method_param_short_names(self, method_id: int) -> str:
         return self.get_method_short(method_id)[1:]

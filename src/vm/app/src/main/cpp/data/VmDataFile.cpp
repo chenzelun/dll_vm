@@ -47,7 +47,8 @@ const uint8_t *VDF_FileData::getData() const {
 
 void VDF_FileData::reset(const uint8_t *pr) {
     this->name = (VDF_String *) pr;
-    this->data_size = *(uint32_t *) (pr + this->name->data_size + 0x04);
+    pr += this->name->data_size + 0x04;
+    this->data_size = *(uint32_t *) pr;
     this->data = pr + 0x04;
 }
 
@@ -57,13 +58,21 @@ VmDataFile::VmDataFile(const uint8_t *pr, uint32_t fileSize) {
     this->header = (VDF_Header *) this->end - 1;
     this->index = (VDF_Index *) this->header - this->header->index_size;
 
-    LOG_D("fileSize: 0x%08x", fileSize);
-    LOG_D("index_size: 0x%08x", header->index_size);
+    LOG_D("fileSize: %u", fileSize);
+    LOG_D("index_size: %u", header->index_size);
     for (int i = 0; i < header->index_size; ++i) {
         const VDF_Index *cur = this->index + i;
-        LOG_D("index[%d].type: %s", i,
-              cur->type == VDF_DataType::TYPE_KEY_VALUE ? "Key-Value" : "File");
-        // TODO
+        bool is_kv = cur->type == VDF_DataType::TYPE_KEY_VALUE;
+        LOG_D("index[%d].type: %s", i, is_kv ? "Key-Value" : "File");
+        LOG_D("index[%d].data_off: %u", i, cur->data_off);
+        if (is_kv) {
+            const VDF_KeyValueData data(this->base + cur->data_off);
+            LOG_D("index[%s]: %s", data.getKey(), data.getVal());
+        } else {
+            const VDF_FileData data(this->base + cur->data_off);
+            LOG_D("index[%d]-f-name: %s", i, data.getName());
+            LOG_D("index[%d]-f-size: %u", i, data.getDataSize());
+        }
     }
 }
 
@@ -87,8 +96,11 @@ bool VmDataFile::findFileByName(const std::string &key, VDF_FileData &retVal) co
         }
         retVal.reset(this->base + this->index[offset].data_off);
         if (key == retVal.getName()) {
+            LOG_D("findFileByName: %s, size: %u, offset: %u,success.",
+                  retVal.getName(), retVal.getDataSize(), this->index[offset].data_off);
             return true;
         }
     }
+    LOG_D("findFileByName: %s, failure.", key.data());
     return false;
 }

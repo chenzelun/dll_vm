@@ -43,10 +43,11 @@ Vm::Vm() {
 }
 
 void Vm::run(VmMethodContext *vmc) {
-
+    LOG_D("run vm method. ok first");
 }
 
 jclass Vm::findPrimitiveClass(const char type) const {
+    assert(type != 'V');
     for (int i = 0; i < PRIMITIVE_TYPE_SIZE; i++) {
         if (this->primitiveType[i] == type) {
             return this->primitiveClass[i];
@@ -64,6 +65,7 @@ void Vm::initPrimitiveClass() {
     jclass cClass = (*env).FindClass(VM_REFLECT::C_NAME_Class);
     for (int i = 0; i < PRIMITIVE_TYPE_SIZE; i++) {
         type[1] = this->primitiveType[i];
+        LOG_D("get jclass: %s", type);
         cArray = (*env).FindClass(type);
         jmethodID mGetComponentType = (*env).GetMethodID(
                 cClass,
@@ -71,6 +73,7 @@ void Vm::initPrimitiveClass() {
                 VM_REFLECT::SIGN_Class_getComponentType);
         this->primitiveClass[i] = (jclass) (*env).CallObjectMethod(cArray, mGetComponentType);
         assert(this->primitiveClass[i] != nullptr);
+        LOG_D("get jclass: %s, finish.", type);
 //        (*env).DeleteLocalRef(cArray);
     }
 //    (*env).DeleteLocalRef(cClass);

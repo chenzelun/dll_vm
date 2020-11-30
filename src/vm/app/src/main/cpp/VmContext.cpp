@@ -5,6 +5,7 @@
 #include "VmContext.h"
 #include "common/Util.h"
 #include "common/VmConstant.h"
+#include <fstream>
 
 JNIEnv *VM_CONTEXT::env = nullptr;
 VmDataFile *VM_CONTEXT::vmDataFile = nullptr;
@@ -21,58 +22,8 @@ void VM_CONTEXT::initVmDataFileOfVC() {
     LOG_D("finish, initVmDataFileOfVC");
 }
 
-void VM_CONTEXT::updateNativeLibraryDirectories() {
-    LOG_D("start, updateNativeLibraryDirectories");
-    JNIEnv *pEnv = VM_CONTEXT::env;
-    jobject oClassLoader = Util::getClassLoader();
-    jclass cClassLoader = (*pEnv).GetObjectClass(oClassLoader);
-    jclass cBaseDexClassLoader = (*pEnv).GetSuperclass(cClassLoader);
-    jfieldID fPathList = (*pEnv).GetFieldID(
-            cBaseDexClassLoader, VM_REFLECT::NAME_DexClassLoader_PathList,
-            VM_REFLECT::SIGN_DexClassLoader_PathList);
-    jobject oPathList = (*pEnv).GetObjectField(oClassLoader, fPathList);
-    LOG_D("1");
-    jclass cDexPathList = (*pEnv).GetObjectClass(oPathList);
-    jfieldID fNativeLibraryPathElements = (*pEnv).GetFieldID(
-            cDexPathList, VM_REFLECT::NAME_NativeLibraryPathElements,
-            VM_REFLECT::SIGN_NativeLibraryPathElements);
-    auto oNativeLibraryPathElements = reinterpret_cast<jobjectArray >((*pEnv).GetObjectField(
-            oPathList, fNativeLibraryPathElements));
-    LOG_D("2");
-    jsize oldLenNativeLibraryPathElements = (*pEnv).GetArrayLength(oNativeLibraryPathElements);
-    LOG_D("oldLenNativeLibraryDirectories: %d", oldLenNativeLibraryPathElements);
-    jclass cNativeLibraryElement = (*pEnv).FindClass(VM_REFLECT::C_NAME_NativeLibraryElement);
-    auto oNativeLibraryPathElementsNew = (*pEnv).NewObjectArray(
-            oldLenNativeLibraryPathElements + 1, cNativeLibraryElement, nullptr);
-    for (int i = 0; i < oldLenNativeLibraryPathElements; i++) {
-        auto t = (*pEnv).GetObjectArrayElement(oNativeLibraryPathElements, i);
-        (*pEnv).SetObjectArrayElement(oNativeLibraryPathElementsNew, i, t);
-    }
-    LOG_D("3");
-    jclass cFile = (*pEnv).FindClass(VM_REFLECT::C_NAME_File);
-    jmethodID mFile = (*pEnv).GetMethodID(
-            cFile, VM_REFLECT::NAME_File_init, VM_REFLECT::SIGN_File_init);
-    jstring filenameStr = (*pEnv).NewStringUTF(Util::getLibDir().data());
-    jobject oFile = (*pEnv).NewObject(cFile, mFile, filenameStr);
-    jmethodID mNativeLibraryElement = (*pEnv).GetMethodID(
-            cNativeLibraryElement, VM_REFLECT::NAME_NativeLibraryElement_init,
-            VM_REFLECT::SIGN_NativeLibraryElement_init);
-    jobject oNativeLibraryElement = (*pEnv).NewObject(
-            cNativeLibraryElement, mNativeLibraryElement, oFile);
-    (*pEnv).SetObjectArrayElement(
-            oNativeLibraryPathElementsNew, oldLenNativeLibraryPathElements, oNativeLibraryElement);
-    (*pEnv).SetObjectField(oPathList, fNativeLibraryPathElements, oNativeLibraryPathElementsNew);
-    LOG_D("4");
-//    (*pEnv).DeleteLocalRef(cClassLoader);
-//    (*pEnv).DeleteLocalRef(cBaseDexClassLoader);
-//    (*pEnv).DeleteLocalRef(cDexPathList);
-//    (*pEnv).DeleteLocalRef(cNativeLibraryElement);
-//    (*pEnv).DeleteLocalRef(cFile);
-    LOG_D("finish, updateNativeLibraryDirectories");
-}
-
 void VM_CONTEXT::loadDexFromMemory() {
-    LOG_D("finish, loadDexFromMemory");
+    LOG_D("start, loadDexFromMemory");
     JNIEnv *pEnv = VM_CONTEXT::env;
     // update mCookie
     LOG_D("0");
@@ -127,7 +78,7 @@ void VM_CONTEXT::loadDexFromMemory() {
             assert(false);
     }
     // Log end.
-
+    LOG_D("4");
     jclass cElement = (*pEnv).FindClass(VM_REFLECT::C_NAME_DexPathList_Element);
     jmethodID mElement = (*pEnv).GetMethodID(
             cElement, VM_REFLECT::NAME_DexPathList_Element_init,

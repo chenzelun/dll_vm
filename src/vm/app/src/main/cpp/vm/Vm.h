@@ -1216,7 +1216,7 @@ private:
     static void throwNew(const char *exceptionClassName, const char *msg);
 };
 
-#define  PRIMITIVE_TYPE_SIZE 9
+#define  PRIMITIVE_TYPE_SIZE 8
 
 class Vm {
 public:
@@ -1234,7 +1234,17 @@ public:
 
 
 private:
-    const char primitiveType[PRIMITIVE_TYPE_SIZE] = {'V', 'B', 'Z', 'I', 'S', 'C', 'F', 'D', 'J'};
+    const char primitiveType[PRIMITIVE_TYPE_SIZE] = {
+//            'V',
+            'B',
+            'Z',
+            'I',
+            'S',
+            'C',
+            'F',
+            'D',
+            'J'
+    };
     jclass primitiveClass[PRIMITIVE_TYPE_SIZE]{};
 private:
     void initPrimitiveClass();
