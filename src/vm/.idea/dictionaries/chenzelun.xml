@@ -10,6 +10,7 @@
       <w>descr</w>
       <w>ident</w>
       <w>iget</w>
+      <w>insn</w>
       <w>insns</w>
       <w>iput</w>
       <w>jclass</w>
@@ -19,6 +20,7 @@
       <w>ldalvik</w>
       <w>ljava</w>
       <w>odex</w>
+      <w>rsub</w>
       <w>sfield</w>
       <w>sget</w>
       <w>sput</w>

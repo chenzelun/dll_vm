@@ -200,7 +200,16 @@ public:
         this->pc += off;
     }
 
-    inline void pc_goto(int32_t off) {
+    inline u4 pc_cur() const {
+        return this->pc;
+    }
+
+    inline void set_pc(uint32_t off) {
+        assert(off < this->method->code->insnsSize);
+        this->pc = off;
+    }
+
+    inline void goto_off(int32_t off) {
         this->pc = this->pc + off;
         assert(0 <= this->pc && this->pc <= this->method->code->insnsSize);
     }

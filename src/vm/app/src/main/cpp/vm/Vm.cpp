@@ -43,12 +43,12 @@ Vm::Vm() {
 }
 
 void Vm::run(VmMethodContext *vmc) const {
-   while (!vmc->isFinish()){
-       if (vmc->curException!= nullptr && !JAVAException::handleJavaException(vmc)){
-           return;
-       }
-       this->interpret->run(vmc);
-   }
+    while (!vmc->isFinish()) {
+        if (vmc->curException != nullptr && !JAVAException::handleJavaException(vmc)) {
+            return;
+        }
+        this->interpret->run(vmc);
+    }
 }
 
 jclass Vm::findPrimitiveClass(const char type) const {
@@ -93,7 +93,7 @@ void CH_NOP::run(VmMethodContext *vmc) {
 void CH_Move::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();
-    LOG_D("|move%s v%d,v%d %s(v%d=%d)",
+    LOG_D("|move%s v%u,v%u %s(v%u=%d)",
           "", vmc->dst, vmc->src1, kSpacing, vmc->dst,
           vmc->getRegisterInt(vmc->src1));
     vmc->setRegisterInt(vmc->dst, vmc->getRegisterInt(vmc->src1));
@@ -103,7 +103,7 @@ void CH_Move::run(VmMethodContext *vmc) {
 void CH_Move_From16::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_AA();
     vmc->src1 = vmc->fetch(1);
-    LOG_D("|move%s/from16 v%d,v%d %s(v%d=%d)",
+    LOG_D("|move%s/from16 v%u,v%u %s(v%u=%d)",
           "", vmc->dst, vmc->src1, kSpacing, vmc->dst,
           vmc->getRegisterInt(vmc->src1));
     vmc->setRegisterInt(vmc->dst, vmc->getRegisterInt(vmc->src1));
@@ -113,7 +113,7 @@ void CH_Move_From16::run(VmMethodContext *vmc) {
 void CH_Move_16::run(VmMethodContext *vmc) {
     vmc->dst = vmc->fetch(1);
     vmc->src1 = vmc->fetch(2);
-    LOG_D("|move%s/16 v%d,v%d %s(v%d=%d)",
+    LOG_D("|move%s/16 v%u,v%u %s(v%u=%d)",
           "", vmc->dst, vmc->src1, kSpacing, vmc->dst,
           vmc->getRegisterInt(vmc->src1));
     vmc->setRegisterInt(vmc->dst, vmc->getRegisterInt(vmc->src1));
@@ -123,7 +123,7 @@ void CH_Move_16::run(VmMethodContext *vmc) {
 void CH_Move_Wide::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();
-    LOG_D("|move-wide v%d,v%d %s(v%d=%ld)",
+    LOG_D("|move-wide v%u,v%u %s(v%u=%ld)",
           vmc->dst, vmc->src1, kSpacing + 5, vmc->dst,
           vmc->getRegisterLong(vmc->src1));
     vmc->setRegisterLong(vmc->dst, vmc->getRegisterLong(vmc->src1));
@@ -133,7 +133,7 @@ void CH_Move_Wide::run(VmMethodContext *vmc) {
 void CH_Move_Wide_From16::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_AA();
     vmc->src1 = vmc->fetch(1);
-    LOG_D("|move-wide/from16 v%d,v%d  (v%d=%ld)",
+    LOG_D("|move-wide/from16 v%u,v%u  (v%u=%ld)",
           vmc->dst, vmc->src1, vmc->dst,
           vmc->getRegisterLong(vmc->src1));
     vmc->setRegisterLong(vmc->dst, vmc->getRegisterLong(vmc->src1));
@@ -143,7 +143,7 @@ void CH_Move_Wide_From16::run(VmMethodContext *vmc) {
 void CH_Move_Wide16::run(VmMethodContext *vmc) {
     vmc->dst = vmc->fetch(1);
     vmc->src1 = vmc->fetch(2);
-    LOG_D("|move-wide/16 v%d,v%d %s(v%d=%ld)",
+    LOG_D("|move-wide/16 v%u,v%u %s(v%u=%ld)",
           vmc->dst, vmc->src1, kSpacing + 8, vmc->dst,
           vmc->getRegisterWide(vmc->src1));
     vmc->setRegisterLong(vmc->dst, vmc->getRegisterLong(vmc->src1));
@@ -153,7 +153,7 @@ void CH_Move_Wide16::run(VmMethodContext *vmc) {
 void CH_Move_Object::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();
-    LOG_D("|move%s v%d,v%d %s(v%d=%p)", "-object",
+    LOG_D("|move%s v%u,v%u %s(v%u=%p)", "-object",
           vmc->dst, vmc->src1, kSpacing, vmc->dst,
           vmc->getRegisterAsObject(vmc->src1));
     vmc->setRegisterAsObject(vmc->dst, vmc->getRegisterAsObject(vmc->src1));
@@ -163,7 +163,7 @@ void CH_Move_Object::run(VmMethodContext *vmc) {
 void CH_Move_Object_From16::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_AA();
     vmc->src1 = vmc->fetch(1);
-    LOG_D("|move%s/from16 v%d,v%d %s(v%d=%p)",
+    LOG_D("|move%s/from16 v%u,v%u %s(v%u=%p)",
           "-object", vmc->dst, vmc->src1, kSpacing, vmc->dst,
           vmc->getRegisterAsObject(vmc->src1));
     vmc->setRegisterAsObject(vmc->dst, vmc->getRegisterAsObject(vmc->src1));
@@ -173,7 +173,7 @@ void CH_Move_Object_From16::run(VmMethodContext *vmc) {
 void CH_Move_Object16::run(VmMethodContext *vmc) {
     vmc->dst = vmc->fetch(1);
     vmc->src1 = vmc->fetch(2);
-    LOG_D("|move%s/16 v%d,v%d %s(v%d=%p)",
+    LOG_D("|move%s/16 v%u,v%u %s(v%u=%p)",
           "-object", vmc->dst, vmc->src1, kSpacing, vmc->dst,
           vmc->getRegisterAsObject(vmc->src1));
     vmc->setRegisterAsObject(vmc->dst, vmc->getRegisterAsObject(vmc->src1));
@@ -182,7 +182,7 @@ void CH_Move_Object16::run(VmMethodContext *vmc) {
 
 void CH_Move_Result::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_AA();
-    LOG_D("|move-result%s v%d %s(v%d=%d)",
+    LOG_D("|move-result%s v%u %s(v%u=%d)",
           "", vmc->dst, kSpacing + 4, vmc->dst, vmc->retVal->i);
     vmc->setRegisterInt(vmc->dst, vmc->retVal->i);
     vmc->pc_off(1);
@@ -190,7 +190,7 @@ void CH_Move_Result::run(VmMethodContext *vmc) {
 
 void CH_Move_Result_Wide::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_AA();
-    LOG_D("|move-result-wide v%d %s(v%d=%ld)",
+    LOG_D("|move-result-wide v%u %s(v%u=%ld)",
           vmc->dst, kSpacing, vmc->dst, vmc->retVal->j);
     vmc->setRegisterLong(vmc->dst, vmc->retVal->j);
     vmc->pc_off(1);
@@ -198,7 +198,7 @@ void CH_Move_Result_Wide::run(VmMethodContext *vmc) {
 
 void CH_Move_Result_Object::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_AA();
-    LOG_D("|move-result%s v%d %s(v%d=0x%p)",
+    LOG_D("|move-result%s v%u %s(v%u=0x%p)",
           "-object", vmc->dst, kSpacing + 4, vmc->dst, vmc->retVal->l);
     vmc->setRegisterAsObject(vmc->dst, vmc->retVal->l);
     vmc->pc_off(1);
@@ -206,7 +206,7 @@ void CH_Move_Result_Object::run(VmMethodContext *vmc) {
 
 void CH_Move_Exception::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_AA();
-    LOG_D("|move-exception v%d", vmc->dst);
+    LOG_D("|move-exception v%u", vmc->dst);
     assert(vmc->curException != nullptr);
     vmc->setRegisterAsObject(vmc->dst, vmc->curException);
     vmc->curException = nullptr;
@@ -220,7 +220,7 @@ void CH_Return_Void::run(VmMethodContext *vmc) {
 
 void CH_Return::run(VmMethodContext *vmc) {
     vmc->src1 = vmc->inst_AA();
-    LOG_D("|return%s v%d", "", vmc->src1);
+    LOG_D("|return%s v%u", "", vmc->src1);
     vmc->retVal->j = 0L;    // set 0
     vmc->retVal->i = vmc->getRegisterInt(vmc->src1);
     vmc->finish();
@@ -228,14 +228,14 @@ void CH_Return::run(VmMethodContext *vmc) {
 
 void CH_Return_Wide::run(VmMethodContext *vmc) {
     vmc->src1 = vmc->inst_AA();
-    LOG_D("return-wide v%d", vmc->src1);
+    LOG_D("return-wide v%u", vmc->src1);
     vmc->retVal->j = vmc->getRegisterLong(vmc->src1);
     vmc->finish();
 }
 
 void CH_Return_Object::run(VmMethodContext *vmc) {
     vmc->src1 = vmc->inst_AA();
-    LOG_D("|return%s v%d", "-object", vmc->src1);
+    LOG_D("|return%s v%u", "-object", vmc->src1);
     vmc->retVal->l = vmc->getRegisterAsObject(vmc->src1);
     vmc->finish();
 }
@@ -243,7 +243,7 @@ void CH_Return_Object::run(VmMethodContext *vmc) {
 void CH_Const4::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->tmp1.s4 = (s4) (vmc->inst_B() << 28) >> 28;  // sign extend 4-bit value
-    LOG_D("|const/4 v%d,#%d", vmc->dst, vmc->tmp1.s4);
+    LOG_D("|const/4 v%u,#%d", vmc->dst, vmc->tmp1.s4);
     vmc->setRegisterInt(vmc->dst, vmc->tmp1.s4);
     vmc->pc_off(1);
 }
@@ -251,7 +251,7 @@ void CH_Const4::run(VmMethodContext *vmc) {
 void CH_Const16::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_AA();
     vmc->tmp1.u2 = vmc->fetch(1);
-    LOG_D("|const/16 v%d,#%d", vmc->dst, vmc->tmp1.s2);
+    LOG_D("|const/16 v%u,#%d", vmc->dst, vmc->tmp1.s2);
     vmc->setRegister(vmc->dst, vmc->tmp1.s2);
     vmc->pc_off(2);
 }
@@ -260,7 +260,7 @@ void CH_Const::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_AA();
     vmc->tmp1.u4 = vmc->fetch(1);
     vmc->tmp1.u4 |= (u4) vmc->fetch(2) << 16u;
-    LOG_D("|const v%d,#%d", vmc->dst, vmc->tmp1.s4);
+    LOG_D("|const v%u,#%d", vmc->dst, vmc->tmp1.s4);
     vmc->setRegisterInt(vmc->dst, vmc->tmp1.s4);
     vmc->pc_off(3);
 }
@@ -268,7 +268,7 @@ void CH_Const::run(VmMethodContext *vmc) {
 void CH_Const_High16::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_AA();
     vmc->src1 = vmc->fetch(1);
-    LOG_D("|const/high16 v%d,#0x%04x0000", vmc->dst, vmc->src1);
+    LOG_D("|const/high16 v%u,#0x%04x0000", vmc->dst, vmc->src1);
     vmc->setRegister(vmc->dst, (u4) vmc->src1 << 16u);
     vmc->pc_off(2);
 }
@@ -276,7 +276,7 @@ void CH_Const_High16::run(VmMethodContext *vmc) {
 void CH_Const_Wide16::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_AA();
     vmc->tmp1.u2 = vmc->fetch(1);
-    LOG_D("|const-wide/16 v%d,#%d", vmc->dst, vmc->tmp1.s2);
+    LOG_D("|const-wide/16 v%u,#%d", vmc->dst, vmc->tmp1.s2);
     vmc->setRegisterLong(vmc->dst, vmc->tmp1.s2);
     vmc->pc_off(2);
 }
@@ -285,7 +285,7 @@ void CH_Const_Wide32::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_AA();
     vmc->tmp1.u4 = vmc->fetch(1);
     vmc->tmp1.u4 |= (u4) vmc->fetch(2) << 16u;
-    LOG_D("|const-wide/32 v%d,#%d", vmc->dst, vmc->tmp1.s4);
+    LOG_D("|const-wide/32 v%u,#%d", vmc->dst, vmc->tmp1.s4);
     vmc->setRegisterLong(vmc->dst, vmc->tmp1.s4);
     vmc->pc_off(3);
 }
@@ -296,7 +296,7 @@ void CH_Const_Wide::run(VmMethodContext *vmc) {
     vmc->tmp1.u8 |= (u8) vmc->fetch(2) << 16u;
     vmc->tmp1.u8 |= (u8) vmc->fetch(3) << 32u;
     vmc->tmp1.u8 |= (u8) vmc->fetch(4) << 48u;
-    LOG_D("|const-wide v%d,#%ld", vmc->dst, vmc->tmp1.s8);
+    LOG_D("|const-wide v%u,#%ld", vmc->dst, vmc->tmp1.s8);
     vmc->setRegisterLong(vmc->dst, vmc->tmp1.s8);
     vmc->pc_off(5);
 }
@@ -304,7 +304,7 @@ void CH_Const_Wide::run(VmMethodContext *vmc) {
 void CH_Const_Wide_High16::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_AA();
     vmc->tmp1.u2 = vmc->fetch(1);
-    LOG_D("|const-wide/high16 v%d,#0x%04x000000000000",
+    LOG_D("|const-wide/high16 v%u,#0x%04x000000000000",
           vmc->dst, vmc->src1);
     vmc->tmp2.u8 = ((u8) vmc->src1) << 48u;
     vmc->setRegisterLong(vmc->dst, vmc->tmp2.s8);
@@ -314,7 +314,7 @@ void CH_Const_Wide_High16::run(VmMethodContext *vmc) {
 void CH_Const_String::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_AA();
     vmc->tmp1.u4 = vmc->fetch(1);
-    LOG_D("|const-string v%d string@%u", vmc->dst, vmc->tmp1.u4);
+    LOG_D("|const-string v%u string@%u", vmc->dst, vmc->tmp1.u4);
     vmc->tmp1.l = vmc->method->resolveString(vmc->tmp1.u4);
     assert(vmc->tmp1.l != nullptr);
     vmc->setRegisterAsObject(vmc->dst, vmc->tmp1.l);
@@ -325,7 +325,7 @@ void CH_Const_String_Jumbo::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_AA();
     vmc->tmp1.u4 = vmc->fetch(1);
     vmc->tmp1.u4 |= (u4) vmc->fetch(2) << 16u;
-    LOG_D("|const-string/jumbo v%d string@%u", vmc->dst, vmc->tmp1.u4);
+    LOG_D("|const-string/jumbo v%u string@%u", vmc->dst, vmc->tmp1.u4);
     vmc->tmp1.l = vmc->method->resolveString(vmc->tmp1.u4);
     assert(vmc->tmp1.l != nullptr);
     vmc->setRegisterAsObject(vmc->dst, vmc->tmp1.l);
@@ -335,7 +335,7 @@ void CH_Const_String_Jumbo::run(VmMethodContext *vmc) {
 void CH_Const_Class::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_AA();
     vmc->tmp1.u4 = vmc->fetch(1);
-    LOG_D("|const-class v%d class@%u", vmc->dst, vmc->tmp1.u4);
+    LOG_D("|const-class v%u class@%u", vmc->dst, vmc->tmp1.u4);
     vmc->tmp1.l = vmc->method->resolveClass(vmc->tmp1.u4);
     if (vmc->tmp1.l == nullptr) {
         JAVAException::throwJavaException(vmc);
@@ -347,7 +347,7 @@ void CH_Const_Class::run(VmMethodContext *vmc) {
 
 void CH_Monitor_Enter::run(VmMethodContext *vmc) {
     vmc->src1 = vmc->inst_AA();
-    LOG_D("|monitor-enter v%d %s(%p)",
+    LOG_D("|monitor-enter v%u %s(%p)",
           vmc->src1, kSpacing + 6, vmc->getRegisterAsObject(vmc->src1));
     vmc->tmp1.l = vmc->getRegisterAsObject(vmc->src1);
     if (!JAVAException::checkForNull(vmc->tmp1.l)) {
@@ -360,7 +360,7 @@ void CH_Monitor_Enter::run(VmMethodContext *vmc) {
 
 void CH_Monitor_Exit::run(VmMethodContext *vmc) {
     vmc->src1 = vmc->inst_AA();
-    LOG_D("|monitor-exit v%d %s(%p)",
+    LOG_D("|monitor-exit v%u %s(%p)",
           vmc->src1, kSpacing + 5, vmc->getRegisterAsObject(vmc->src1));
     vmc->tmp1.l = vmc->getRegisterAsObject(vmc->src1);
     /**
@@ -385,7 +385,7 @@ void CH_Monitor_Exit::run(VmMethodContext *vmc) {
 void CH_Check_Cast::run(VmMethodContext *vmc) {
     vmc->src1 = vmc->inst_AA();
     vmc->tmp1.u4 = vmc->fetch(1);
-    LOG_D("|check-cast v%d,class@%u", vmc->src1, vmc->tmp1.u4);
+    LOG_D("|check-cast v%u,class@%u", vmc->src1, vmc->tmp1.u4);
     vmc->tmp1.l = vmc->getRegisterAsObject(vmc->src1);
     if (vmc->tmp1.l) {
         vmc->tmp2.lc = vmc->method->resolveClass(vmc->src1);
@@ -408,7 +408,7 @@ void CH_Instance_Of::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();
     vmc->tmp1.u4 = vmc->fetch(1);
-    LOG_D("|instance-of v%d,v%d,class@%u",
+    LOG_D("|instance-of v%u,v%u,class@%u",
           vmc->dst, vmc->src1, vmc->tmp1.u4);
     vmc->tmp1.l = vmc->getRegisterAsObject(vmc->src1);
     vmc->tmp2.lc = nullptr;
@@ -431,7 +431,7 @@ void CH_Array_Length::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();
     vmc->tmp1.l = vmc->getRegisterAsObject(vmc->src1);
-    LOG_D("|array-length v%d,v%d  (%p)",
+    LOG_D("|array-length v%u,v%u  (%p)",
           vmc->dst, vmc->src1, vmc->tmp1.l);
     if (!JAVAException::checkForNull(vmc->tmp1.l)) {
         JAVAException::throwJavaException(vmc);
@@ -445,7 +445,7 @@ void CH_Array_Length::run(VmMethodContext *vmc) {
 void CH_New_Instance::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_AA();
     vmc->tmp1.u4 = vmc->fetch(1);
-    LOG_D("|new-instance v%d,class@%u", vmc->dst, vmc->tmp1.u4);
+    LOG_D("|new-instance v%u,class@%u", vmc->dst, vmc->tmp1.u4);
     vmc->tmp1.l = vmc->method->resolveClass(vmc->tmp1.u4);
     if (vmc->tmp1.l == nullptr) {
         JAVAException::throwJavaException(vmc);
@@ -465,9 +465,9 @@ void CH_New_Array::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();
     vmc->tmp1.u4 = vmc->fetch(1);
-    LOG_D("|new-array v%d,v%d,class@%u  (%d elements)",
-          vmc->dst, vmc->src1, vmc->tmp1.u4, vmc->getRegister(vmc->src1));
-    vmc->tmp2.s4 = vmc->getRegister(vmc->src1);
+    LOG_D("|new-array v%u,v%u,class@%u  (%d elements)",
+          vmc->dst, vmc->src1, vmc->tmp1.u4, vmc->getRegisterInt(vmc->src1));
+    vmc->tmp2.s4 = vmc->getRegisterInt(vmc->src1);
     if (vmc->tmp2.s4 < 0) {
         JAVAException::throwNegativeArraySizeException(vmc->tmp2.s4);
         JAVAException::throwJavaException(vmc);
@@ -497,7 +497,7 @@ void CH_Fill_Array_Data::run(VmMethodContext *vmc) {
     JNIEnv *env = VM_CONTEXT::env;
     vmc->src1 = vmc->inst_AA();
     vmc->tmp1.u4 = vmc->fetch(1) | (((u4) vmc->fetch(2)) << 16u);
-    LOG_D("|fill-array-data v%d +%d", vmc->src1, vmc->tmp1.s4);
+    LOG_D("|fill-array-data v%u +%d", vmc->src1, vmc->tmp1.s4);
 
     const u2 *data = vmc->arrayData(vmc->tmp1.s4);
     vmc->tmp1.l = vmc->getRegisterAsObject(vmc->src1);
@@ -569,7 +569,7 @@ void CH_Fill_Array_Data::run(VmMethodContext *vmc) {
 
 void CH_Throw::run(VmMethodContext *vmc) {
     vmc->src1 = vmc->inst_AA();
-    LOG_D("throw v%d  (%p)",
+    LOG_D("throw v%u  (%p)",
           vmc->src1, vmc->getRegisterAsObject(vmc->src1));
     vmc->tmp1.l = vmc->getRegisterAsObject(vmc->src1);
     if (!JAVAException::checkForNull(vmc->tmp1.l)) {
@@ -591,7 +591,7 @@ void CH_Goto::run(VmMethodContext *vmc) {
         LOG_D("|goto +%d", (vmc->tmp1.s1));
         LOG_D("> branch taken");
     }
-    vmc->pc_goto(vmc->tmp1.s1);
+    vmc->goto_off(vmc->tmp1.s1);
     // no pc_off
 }
 
@@ -603,7 +603,7 @@ void CH_Goto16::run(VmMethodContext *vmc) {
         LOG_D("|goto +%d", (vmc->tmp1.s2));
         LOG_D("> branch taken");
     }
-    vmc->pc_goto(vmc->tmp1.s2);
+    vmc->goto_off(vmc->tmp1.s2);
     // no pc_off
 }
 
@@ -616,31 +616,31 @@ void CH_Goto32::run(VmMethodContext *vmc) {
         LOG_D("|goto +%d", (vmc->tmp1.s4));
         LOG_D("> branch taken");
     }
-    vmc->pc_goto(vmc->tmp1.s4);
+    vmc->goto_off(vmc->tmp1.s4);
     // no pc_off
 }
 
 void CH_Packed_Switch::run(VmMethodContext *vmc) {
     vmc->src1 = vmc->inst_AA();
     vmc->tmp1.u4 = vmc->fetch(1) | ((u4) vmc->fetch(2) << 16u);
-    LOG_D("|packed-switch v%d +%d", vmc->src1, vmc->tmp1.s4);
+    LOG_D("|packed-switch v%u +%d", vmc->src1, vmc->tmp1.s4);
     const u2 *data = vmc->arrayData(vmc->tmp1.s4);   // offset in 16-bit units
     vmc->tmp1.u4 = vmc->getRegister(vmc->src1);
     vmc->tmp1.s4 = CodeHandler::handlePackedSwitch(data, vmc->tmp1.u4);
     LOG_D("> branch taken (%d)", vmc->tmp1.s4);
-    vmc->pc_goto(vmc->tmp1.s4);
+    vmc->goto_off(vmc->tmp1.s4);
     // no pc_off
 }
 
 void CH_Sparse_Switch::run(VmMethodContext *vmc) {
     vmc->src1 = vmc->inst_AA();
     vmc->tmp1.u4 = vmc->fetch(1) | ((u4) vmc->fetch(2) << 16u);
-    LOG_D("|packed-switch v%d +%d", vmc->src1, vmc->tmp1.s4);
+    LOG_D("|packed-switch v%u +%d", vmc->src1, vmc->tmp1.s4);
     const u2 *data = vmc->arrayData(vmc->tmp1.s4);   // offset in 16-bit units
     vmc->tmp1.u4 = vmc->getRegister(vmc->src1);
     vmc->tmp1.s4 = CodeHandler::handleSparseSwitch(data, vmc->tmp1.u4);
     LOG_D("> branch taken (%d)", vmc->tmp1.s4);
-    vmc->pc_goto(vmc->tmp1.s4);
+    vmc->goto_off(vmc->tmp1.s4);
     // no pc_off
 }
 
@@ -754,7 +754,7 @@ void CH_IF_EQ::run(VmMethodContext *vmc) {
         LOG_D("|if-%s v%u,v%u,+%d",
               "eq", vmc->src1, vmc->src2, vmc->tmp1.s4);
         LOG_D("> branch taken");
-        vmc->pc_goto(vmc->tmp1.s4);
+        vmc->goto_off(vmc->tmp1.s4);
     } else {
         LOG_D("|if-%s v%u,v%u,-",
               "eq", vmc->src1, vmc->src2);
@@ -772,7 +772,7 @@ void CH_IF_NE::run(VmMethodContext *vmc) {
         LOG_D("|if-%s v%u,v%u,+%d",
               "ne", vmc->src1, vmc->src2, vmc->tmp1.s4);
         LOG_D("> branch taken");
-        vmc->pc_goto(vmc->tmp1.s4);
+        vmc->goto_off(vmc->tmp1.s4);
     } else {
         LOG_D("|if-%s v%u,v%u,-",
               "ne", vmc->src1, vmc->src2);
@@ -790,7 +790,7 @@ void CH_IF_LT::run(VmMethodContext *vmc) {
         LOG_D("|if-%s v%u,v%u,+%d",
               "lt", vmc->src1, vmc->src2, vmc->tmp1.s4);
         LOG_D("> branch taken");
-        vmc->pc_goto(vmc->tmp1.s4);
+        vmc->goto_off(vmc->tmp1.s4);
     } else {
         LOG_D("|if-%s v%u,v%u,-",
               "lt", vmc->src1, vmc->src2);
@@ -808,7 +808,7 @@ void CH_IF_LE::run(VmMethodContext *vmc) {
         LOG_D("|if-%s v%u,v%u,+%d",
               "le", vmc->src1, vmc->src2, vmc->tmp1.s4);
         LOG_D("> branch taken");
-        vmc->pc_goto(vmc->tmp1.s4);
+        vmc->goto_off(vmc->tmp1.s4);
     } else {
         LOG_D("|if-%s v%u,v%u,-",
               "le", vmc->src1, vmc->src2);
@@ -826,7 +826,7 @@ void CH_IF_GT::run(VmMethodContext *vmc) {
         LOG_D("|if-%s v%u,v%u,+%d",
               "gt", vmc->src1, vmc->src2, vmc->tmp1.s4);
         LOG_D("> branch taken");
-        vmc->pc_goto(vmc->tmp1.s4);
+        vmc->goto_off(vmc->tmp1.s4);
     } else {
         LOG_D("|if-%s v%u,v%u,-",
               "gt", vmc->src1, vmc->src2);
@@ -844,7 +844,7 @@ void CH_IF_GE::run(VmMethodContext *vmc) {
         LOG_D("|if-%s v%u,v%u,+%d",
               "ge", vmc->src1, vmc->src2, vmc->tmp1.s4);
         LOG_D("> branch taken");
-        vmc->pc_goto(vmc->tmp1.s4);
+        vmc->goto_off(vmc->tmp1.s4);
     } else {
         LOG_D("|if-%s v%u,v%u,-",
               "ge", vmc->src1, vmc->src2);
@@ -859,7 +859,7 @@ void CH_IF_EQZ::run(VmMethodContext *vmc) {
         LOG_D("|if-%s v%u,v%u",
               "eqz", vmc->src1, vmc->tmp1.s4);
         LOG_D("> branch taken");
-        vmc->pc_goto(vmc->tmp1.s4);
+        vmc->goto_off(vmc->tmp1.s4);
     } else {
         LOG_D("|if-%s v%u,-", "eqz", vmc->src1);
         vmc->pc_off(2);
@@ -873,7 +873,7 @@ void CH_IF_NEZ::run(VmMethodContext *vmc) {
         LOG_D("|if-%s v%u,v%u",
               "nez", vmc->src1, vmc->tmp1.s4);
         LOG_D("> branch taken");
-        vmc->pc_goto(vmc->tmp1.s4);
+        vmc->goto_off(vmc->tmp1.s4);
     } else {
         LOG_D("|if-%s v%u,-", "nez", vmc->src1);
         vmc->pc_off(2);
@@ -887,7 +887,7 @@ void CH_IF_LTZ::run(VmMethodContext *vmc) {
         LOG_D("|if-%s v%u,v%u",
               "ltz", vmc->src1, vmc->tmp1.s4);
         LOG_D("> branch taken");
-        vmc->pc_goto(vmc->tmp1.s4);
+        vmc->goto_off(vmc->tmp1.s4);
     } else {
         LOG_D("|if-%s v%u,-", "ltz", vmc->src1);
         vmc->pc_off(2);
@@ -901,7 +901,7 @@ void CH_IF_GEZ::run(VmMethodContext *vmc) {
         LOG_D("|if-%s v%u,v%u",
               "gez", vmc->src1, vmc->tmp1.s4);
         LOG_D("> branch taken");
-        vmc->pc_goto(vmc->tmp1.s4);
+        vmc->goto_off(vmc->tmp1.s4);
     } else {
         LOG_D("|if-%s v%u,-", "gez", vmc->src1);
         vmc->pc_off(2);
@@ -915,7 +915,7 @@ void CH_IF_GTZ::run(VmMethodContext *vmc) {
         LOG_D("|if-%s v%u,v%u",
               "gtz", vmc->src1, vmc->tmp1.s4);
         LOG_D("> branch taken");
-        vmc->pc_goto(vmc->tmp1.s4);
+        vmc->goto_off(vmc->tmp1.s4);
     } else {
         LOG_D("|if-%s v%u,-", "gtz", vmc->src1);
         vmc->pc_off(2);
@@ -929,7 +929,7 @@ void CH_IF_LEZ::run(VmMethodContext *vmc) {
         LOG_D("|if-%s v%u,v%u",
               "lez", vmc->src1, vmc->tmp1.s4);
         LOG_D("> branch taken");
-        vmc->pc_goto(vmc->tmp1.s4);
+        vmc->goto_off(vmc->tmp1.s4);
     } else {
         LOG_D("|if-%s v%u,-", "lez", vmc->src1);
         vmc->pc_off(2);
@@ -988,7 +988,7 @@ void CH_Aget_Wide::run(VmMethodContext *vmc) {
     (*VM_CONTEXT::env).GetLongArrayRegion(
             vmc->tmp1.lja, vmc->getRegister(vmc->src2), 1, (jlong *) buf);
     vmc->setRegisterLong(vmc->dst, *(jlong *) buf);
-    LOG_D("+ AGET[%d]=%ld",
+    LOG_D("+ AGET[%u]=%ld",
           vmc->getRegister(vmc->src2),
           vmc->getRegisterLong(vmc->dst));
     vmc->pc_off(2);
@@ -1016,7 +1016,7 @@ void CH_Aget_Object::run(VmMethodContext *vmc) {
     vmc->tmp2.l = (*VM_CONTEXT::env).GetObjectArrayElement(
             vmc->tmp1.lla, vmc->getRegister(vmc->src2));
     vmc->setRegisterAsObject(vmc->dst, vmc->tmp2.l);
-    LOG_D("+ AGET[%d]=%p",
+    LOG_D("+ AGET[%u]=%p",
           vmc->getRegister(vmc->src2),
           vmc->getRegisterAsObject(vmc->dst));
     vmc->pc_off(2);
@@ -1045,7 +1045,7 @@ void CH_Aget_Boolean::run(VmMethodContext *vmc) {
     (*VM_CONTEXT::env).GetBooleanArrayRegion(
             vmc->tmp1.lza, vmc->getRegister(vmc->src2), 1, (jboolean *) buf);
     vmc->setRegister(vmc->dst, *(jboolean *) buf);
-    LOG_D("+ AGET[%d]=%u",
+    LOG_D("+ AGET[%u]=%u",
           vmc->getRegister(vmc->src2),
           vmc->getRegister(vmc->dst));
     vmc->pc_off(2);
@@ -1074,7 +1074,7 @@ void CH_Aget_Byte::run(VmMethodContext *vmc) {
     (*VM_CONTEXT::env).GetByteArrayRegion(
             vmc->tmp1.lba, vmc->getRegister(vmc->src2), 1, (jbyte *) buf);
     vmc->setRegister(vmc->dst, *(jbyte *) buf);
-    LOG_D("+ AGET[%d]=%u",
+    LOG_D("+ AGET[%u]=%u",
           vmc->getRegister(vmc->src2),
           vmc->getRegister(vmc->dst));
     vmc->pc_off(2);
@@ -1103,7 +1103,7 @@ void CH_Aget_Char::run(VmMethodContext *vmc) {
     (*VM_CONTEXT::env).GetCharArrayRegion(
             vmc->tmp1.lca, vmc->getRegister(vmc->src2), 1, (jchar *) buf);
     vmc->setRegister(vmc->dst, *(jchar *) buf);
-    LOG_D("+ AGET[%d]=%u",
+    LOG_D("+ AGET[%u]=%u",
           vmc->getRegister(vmc->src2),
           vmc->getRegister(vmc->dst));
     vmc->pc_off(2);
@@ -1132,7 +1132,7 @@ void CH_Aget_Short::run(VmMethodContext *vmc) {
     (*VM_CONTEXT::env).GetShortArrayRegion(
             vmc->tmp1.lsa, vmc->getRegister(vmc->src2), 1, (jshort *) buf);
     vmc->setRegister(vmc->dst, *(jshort *) buf);
-    LOG_D("+ AGET[%d]=%u",
+    LOG_D("+ AGET[%u]=%u",
           vmc->getRegister(vmc->src2),
           vmc->getRegister(vmc->dst));
     vmc->pc_off(2);
@@ -1157,7 +1157,7 @@ void CH_Aput::run(VmMethodContext *vmc) {
         JAVAException::throwJavaException(vmc);
         return;
     }
-    LOG_D("+ APUT[%d]=%d",
+    LOG_D("+ APUT[%u]=%d",
           vmc->getRegister(vmc->src2),
           vmc->getRegisterInt(vmc->dst));
     u8 buf[1];
@@ -1186,7 +1186,7 @@ void CH_Aput_Wide::run(VmMethodContext *vmc) {
         JAVAException::throwJavaException(vmc);
         return;
     }
-    LOG_D("+ APUT[%d]=%ld",
+    LOG_D("+ APUT[%u]=%ld",
           vmc->getRegister(vmc->src2),
           vmc->getRegisterLong(vmc->dst));
     u8 buf[1];
@@ -1215,7 +1215,7 @@ void CH_Aput_Object::run(VmMethodContext *vmc) {
         JAVAException::throwJavaException(vmc);
         return;
     }
-    LOG_D("+ APUT[%d]=%p", vmc->getRegister(vmc->src2),
+    LOG_D("+ APUT[%u]=%p", vmc->getRegister(vmc->src2),
           vmc->getRegisterAsObject(vmc->dst));
     vmc->tmp2.l = vmc->getRegisterAsObject(vmc->dst);
     (*VM_CONTEXT::env).SetObjectArrayElement(
@@ -1242,7 +1242,7 @@ void CH_Aput_Boolean::run(VmMethodContext *vmc) {
         JAVAException::throwJavaException(vmc);
         return;
     }
-    LOG_D("+ APUT[%d]=%u",
+    LOG_D("+ APUT[%u]=%u",
           vmc->getRegister(vmc->src2),
           vmc->getRegister(vmc->dst));
     u8 buf[1];
@@ -1271,7 +1271,7 @@ void CH_Aput_Byte::run(VmMethodContext *vmc) {
         JAVAException::throwJavaException(vmc);
         return;
     }
-    LOG_D("+ APUT[%d]=%u",
+    LOG_D("+ APUT[%u]=%u",
           vmc->getRegister(vmc->src2),
           vmc->getRegister(vmc->dst));
     u8 buf[1];
@@ -1300,7 +1300,7 @@ void CH_Aput_Char::run(VmMethodContext *vmc) {
         JAVAException::throwJavaException(vmc);
         return;
     }
-    LOG_D("+ APUT[%d]=%u",
+    LOG_D("+ APUT[%u]=%u",
           vmc->getRegister(vmc->src2),
           vmc->getRegister(vmc->dst));
     u8 buf[1];
@@ -1329,7 +1329,7 @@ void CH_Aput_Short::run(VmMethodContext *vmc) {
         JAVAException::throwJavaException(vmc);
         return;
     }
-    LOG_D("+ APUT[%d]=%d",
+    LOG_D("+ APUT[%u]=%u",
           vmc->getRegister(vmc->src2),
           vmc->getRegister(vmc->dst));
     u8 buf[1];
@@ -1343,7 +1343,7 @@ void OP_Iget::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();          /* object ptr */
     vmc->tmp1.u4 = vmc->fetch(1);   /* field ref */
-    LOG_D("|iget%s v%d,v%d,field@%u",
+    LOG_D("|iget%s v%u,v%u,field@%u",
           "-normal", vmc->dst, vmc->src1, vmc->tmp1.u4);
     vmc->tmp2.l = vmc->getRegisterAsObject(vmc->src1);
     if (!JAVAException::checkForNull(vmc->tmp2.l)) {
@@ -1366,7 +1366,7 @@ void OP_Iget_Wide::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();          /* object ptr */
     vmc->tmp1.u4 = vmc->fetch(1);   /* field ref */
-    LOG_D("|iget%s v%d,v%d,field@%u",
+    LOG_D("|iget%s v%u,v%u,field@%u",
           "-wide", vmc->dst, vmc->src1, vmc->tmp1.u4);
     vmc->tmp2.l = vmc->getRegisterAsObject(vmc->src1);
     if (!JAVAException::checkForNull(vmc->tmp2.l)) {
@@ -1389,7 +1389,7 @@ void OP_Iget_Object::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();          /* object ptr */
     vmc->tmp1.u4 = vmc->fetch(1);   /* field ref */
-    LOG_D("|iget%s v%d,v%d,field@%u",
+    LOG_D("|iget%s v%u,v%u,field@%u",
           "-object", vmc->dst, vmc->src1, vmc->tmp1.u4);
     vmc->tmp2.l = vmc->getRegisterAsObject(vmc->src1);
     if (!JAVAException::checkForNull(vmc->tmp2.l)) {
@@ -1412,7 +1412,7 @@ void OP_Iget_Boolean::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();          /* object ptr */
     vmc->tmp1.u4 = vmc->fetch(1);   /* field ref */
-    LOG_D("|iget%s v%d,v%d,field@%u",
+    LOG_D("|iget%s v%u,v%u,field@%u",
           "-bool", vmc->dst, vmc->src1, vmc->tmp1.u4);
     vmc->tmp2.l = vmc->getRegisterAsObject(vmc->src1);
     if (!JAVAException::checkForNull(vmc->tmp2.l)) {
@@ -1435,7 +1435,7 @@ void OP_Iget_Byte::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();          /* object ptr */
     vmc->tmp1.u4 = vmc->fetch(1);   /* field ref */
-    LOG_D("|iget%s v%d,v%d,field@%u",
+    LOG_D("|iget%s v%u,v%u,field@%u",
           "-byte", vmc->dst, vmc->src1, vmc->tmp1.u4);
     vmc->tmp2.l = vmc->getRegisterAsObject(vmc->src1);
     if (!JAVAException::checkForNull(vmc->tmp2.l)) {
@@ -1458,7 +1458,7 @@ void OP_Iget_Char::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();          /* object ptr */
     vmc->tmp1.u4 = vmc->fetch(1);   /* field ref */
-    LOG_D("|iget%s v%d,v%d,field@%u",
+    LOG_D("|iget%s v%u,v%u,field@%u",
           "-char", vmc->dst, vmc->src1, vmc->tmp1.u4);
     vmc->tmp2.l = vmc->getRegisterAsObject(vmc->src1);
     if (!JAVAException::checkForNull(vmc->tmp2.l)) {
@@ -1481,7 +1481,7 @@ void OP_Iget_Short::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();          /* object ptr */
     vmc->tmp1.u4 = vmc->fetch(1);   /* field ref */
-    LOG_D("|iget%s v%d,v%d,field@%u",
+    LOG_D("|iget%s v%u,v%u,field@%u",
           "-short", vmc->dst, vmc->src1, vmc->tmp1.u4);
     vmc->tmp2.l = vmc->getRegisterAsObject(vmc->src1);
     if (!JAVAException::checkForNull(vmc->tmp2.l)) {
@@ -1504,7 +1504,7 @@ void CH_Iput::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();          /* object ptr */
     vmc->tmp1.u4 = vmc->fetch(1);   /* field ref */
-    LOG_D("|iput%s v%d,v%d,field@%u",
+    LOG_D("|iput%s v%u,v%u,field@%u",
           "-normal", vmc->dst, vmc->src1, vmc->tmp1.u4);
     vmc->tmp2.l = vmc->getRegisterAsObject(vmc->src1);
     if (!JAVAException::checkForNull(vmc->tmp2.l)) {
@@ -1517,7 +1517,7 @@ void CH_Iput::run(VmMethodContext *vmc) {
         JAVAException::throwJavaException(vmc);
         return;
     }
-    LOG_D("+ IPUT '%s'=%d",
+    LOG_D("+ IPUT '%s'=%u",
           vmc->method->resolveFieldName(vmc->tmp1.u4),
           vmc->getRegisterInt(vmc->dst));
     vmc->pc_off(2);
@@ -1527,7 +1527,7 @@ void CH_Iput_Wide::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();          /* object ptr */
     vmc->tmp1.u4 = vmc->fetch(1);   /* field ref */
-    LOG_D("|iput%s v%d,v%d,field@%u",
+    LOG_D("|iput%s v%u,v%u,field@%u",
           "-wide", vmc->dst, vmc->src1, vmc->tmp1.u4);
     vmc->tmp2.l = vmc->getRegisterAsObject(vmc->src1);
     if (!JAVAException::checkForNull(vmc->tmp2.l)) {
@@ -1550,7 +1550,7 @@ void CH_Iput_Object::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();          /* object ptr */
     vmc->tmp1.u4 = vmc->fetch(1);   /* field ref */
-    LOG_D("|iput%s v%d,v%d,field@%u",
+    LOG_D("|iput%s v%u,v%u,field@%u",
           "-object", vmc->dst, vmc->src1, vmc->tmp1.u4);
     vmc->tmp2.l = vmc->getRegisterAsObject(vmc->src1);
     if (!JAVAException::checkForNull(vmc->tmp2.l)) {
@@ -1573,7 +1573,7 @@ void CH_Iput_Boolean::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();          /* object ptr */
     vmc->tmp1.u4 = vmc->fetch(1);   /* field ref */
-    LOG_D("|iput%s v%d,v%d,field@%u",
+    LOG_D("|iput%s v%u,v%u,field@%u",
           "-bool", vmc->dst, vmc->src1, vmc->tmp1.u4);
     vmc->tmp2.l = vmc->getRegisterAsObject(vmc->src1);
     if (!JAVAException::checkForNull(vmc->tmp2.l)) {
@@ -1596,7 +1596,7 @@ void CH_Iput_Byte::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();          /* object ptr */
     vmc->tmp1.u4 = vmc->fetch(1);   /* field ref */
-    LOG_D("|iput%s v%d,v%d,field@%u",
+    LOG_D("|iput%s v%u,v%u,field@%u",
           "-byte", vmc->dst, vmc->src1, vmc->tmp1.u4);
     vmc->tmp2.l = vmc->getRegisterAsObject(vmc->src1);
     if (!JAVAException::checkForNull(vmc->tmp2.l)) {
@@ -1619,7 +1619,7 @@ void CH_Iput_Char::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();          /* object ptr */
     vmc->tmp1.u4 = vmc->fetch(1);   /* field ref */
-    LOG_D("|iput%s v%d,v%d,field@%u",
+    LOG_D("|iput%s v%u,v%u,field@%u",
           "-char", vmc->dst, vmc->src1, vmc->tmp1.u4);
     vmc->tmp2.l = vmc->getRegisterAsObject(vmc->src1);
     if (!JAVAException::checkForNull(vmc->tmp2.l)) {
@@ -1642,7 +1642,7 @@ void CH_IF_Short::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();          /* object ptr */
     vmc->tmp1.u4 = vmc->fetch(1);   /* field ref */
-    LOG_D("|iput%s v%d,v%d,field@%u",
+    LOG_D("|iput%s v%u,v%u,field@%u",
           "-short", vmc->dst, vmc->src1, vmc->tmp1.u4);
     vmc->tmp2.l = vmc->getRegisterAsObject(vmc->src1);
     if (!JAVAException::checkForNull(vmc->tmp2.l)) {
@@ -1664,7 +1664,7 @@ void CH_IF_Short::run(VmMethodContext *vmc) {
 void CH_Sget::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_AA();
     vmc->tmp1.u4 = vmc->fetch(1);   /* field ref */
-    LOG_D("|sget%s v%d,sfield@%u",
+    LOG_D("|sget%s v%u,sfield@%u",
           "-normal", vmc->dst, vmc->tmp1.u4);
     RegValue val{};
     if (!vmc->method->resolveField(vmc->tmp1.u4, nullptr, &val)) {
@@ -1681,7 +1681,7 @@ void CH_Sget::run(VmMethodContext *vmc) {
 void CH_Sget_Wide::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_AA();
     vmc->tmp1.u4 = vmc->fetch(1);   /* field ref */
-    LOG_D("|sget%s v%d,sfield@%u",
+    LOG_D("|sget%s v%u,sfield@%u",
           "-wide", vmc->dst, vmc->tmp1.u4);
     RegValue val{};
     if (!vmc->method->resolveField(vmc->tmp1.u4, nullptr, &val)) {
@@ -1698,7 +1698,7 @@ void CH_Sget_Wide::run(VmMethodContext *vmc) {
 void CH_Sget_Object::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_AA();
     vmc->tmp1.u4 = vmc->fetch(1);   /* field ref */
-    LOG_D("|sget%s v%d,sfield@%u",
+    LOG_D("|sget%s v%u,sfield@%u",
           "-object", vmc->dst, vmc->tmp1.u4);
     RegValue val{};
     if (!vmc->method->resolveField(vmc->tmp1.u4, nullptr, &val)) {
@@ -1715,7 +1715,7 @@ void CH_Sget_Object::run(VmMethodContext *vmc) {
 void CH_Sget_Boolean::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_AA();
     vmc->tmp1.u4 = vmc->fetch(1);   /* field ref */
-    LOG_D("|sget%s v%d,sfield@%u",
+    LOG_D("|sget%s v%u,sfield@%u",
           "-boolean", vmc->dst, vmc->tmp1.u4);
     RegValue val{};
     if (!vmc->method->resolveField(vmc->tmp1.u4, nullptr, &val)) {
@@ -1732,7 +1732,7 @@ void CH_Sget_Boolean::run(VmMethodContext *vmc) {
 void CH_Sget_Byte::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_AA();
     vmc->tmp1.u4 = vmc->fetch(1);   /* field ref */
-    LOG_D("|sget%s v%d,sfield@%u",
+    LOG_D("|sget%s v%u,sfield@%u",
           "-byte", vmc->dst, vmc->tmp1.u4);
     RegValue val{};
     if (!vmc->method->resolveField(vmc->tmp1.u4, nullptr, &val)) {
@@ -1749,7 +1749,7 @@ void CH_Sget_Byte::run(VmMethodContext *vmc) {
 void CH_Sget_Char::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_AA();
     vmc->tmp1.u4 = vmc->fetch(1);   /* field ref */
-    LOG_D("|sget%s v%d,sfield@%u",
+    LOG_D("|sget%s v%u,sfield@%u",
           "-char", vmc->dst, vmc->tmp1.u4);
     RegValue val{};
     if (!vmc->method->resolveField(vmc->tmp1.u4, nullptr, &val)) {
@@ -1766,7 +1766,7 @@ void CH_Sget_Char::run(VmMethodContext *vmc) {
 void CH_Sget_Short::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_AA();
     vmc->tmp1.u4 = vmc->fetch(1);   /* field ref */
-    LOG_D("|sget%s v%d,sfield@%u",
+    LOG_D("|sget%s v%u,sfield@%u",
           "-short", vmc->dst, vmc->tmp1.u4);
     RegValue val{};
     if (!vmc->method->resolveField(vmc->tmp1.u4, nullptr, &val)) {
@@ -1783,7 +1783,7 @@ void CH_Sget_Short::run(VmMethodContext *vmc) {
 void CH_Sput::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_AA();
     vmc->tmp1.u4 = vmc->fetch(1);    /* field ref */
-    LOG_D("sput%s v%d,sfield@%u",
+    LOG_D("sput%s v%u,sfield@%u",
           "-normal", vmc->dst, vmc->tmp1.u4);
     RegValue val{};
     val.i = vmc->getRegisterInt(vmc->dst);
@@ -1800,7 +1800,7 @@ void CH_Sput::run(VmMethodContext *vmc) {
 void CH_Sput_Wide::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_AA();
     vmc->tmp1.u4 = vmc->fetch(1);    /* field ref */
-    LOG_D("sput%s v%d,sfield@%u",
+    LOG_D("sput%s v%u,sfield@%u",
           "-wide", vmc->dst, vmc->tmp1.u4);
     RegValue val{};
     val.j = vmc->getRegisterLong(vmc->dst);
@@ -1817,7 +1817,7 @@ void CH_Sput_Wide::run(VmMethodContext *vmc) {
 void CH_Sput_Object::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_AA();
     vmc->tmp1.u4 = vmc->fetch(1);    /* field ref */
-    LOG_D("sput%s v%d,sfield@%u",
+    LOG_D("sput%s v%u,sfield@%u",
           "-object", vmc->dst, vmc->tmp1.u4);
     RegValue val{};
     val.l = vmc->getRegisterAsObject(vmc->dst);
@@ -1834,7 +1834,7 @@ void CH_Sput_Object::run(VmMethodContext *vmc) {
 void CH_Sput_Boolean::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_AA();
     vmc->tmp1.u4 = vmc->fetch(1);    /* field ref */
-    LOG_D("sput%s v%d,sfield@%u",
+    LOG_D("sput%s v%u,sfield@%u",
           "-boolean", vmc->dst, vmc->tmp1.u4);
     RegValue val{};
     val.z = vmc->getRegister(vmc->dst);
@@ -1851,7 +1851,7 @@ void CH_Sput_Boolean::run(VmMethodContext *vmc) {
 void CH_Sput_Byte::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_AA();
     vmc->tmp1.u4 = vmc->fetch(1);    /* field ref */
-    LOG_D("sput%s v%d,sfield@%u",
+    LOG_D("sput%s v%u,sfield@%u",
           "-byte", vmc->dst, vmc->tmp1.u4);
     RegValue val{};
     val.b = vmc->getRegister(vmc->dst);
@@ -1868,7 +1868,7 @@ void CH_Sput_Byte::run(VmMethodContext *vmc) {
 void CH_Sput_Char::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_AA();
     vmc->tmp1.u4 = vmc->fetch(1);    /* field ref */
-    LOG_D("sput%s v%d,sfield@%u",
+    LOG_D("sput%s v%u,sfield@%u",
           "-char", vmc->dst, vmc->tmp1.u4);
     RegValue val{};
     val.c = vmc->getRegister(vmc->dst);
@@ -1885,7 +1885,7 @@ void CH_Sput_Char::run(VmMethodContext *vmc) {
 void CH_Sput_Short::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_AA();
     vmc->tmp1.u4 = vmc->fetch(1);    /* field ref */
-    LOG_D("sput%s v%d,sfield@%u",
+    LOG_D("sput%s v%u,sfield@%u",
           "-short", vmc->dst, vmc->tmp1.u4);
     RegValue val{};
     val.s = vmc->getRegister(vmc->dst);
@@ -2227,7 +2227,7 @@ void CH_Rem_Int::run(VmMethodContext *vmc) {
     if (vmc->tmp1.u4 == 0x80000000u && vmc->tmp2.i == -1) {
         vmc->tmp2.i = 0;
     } else {
-        vmc->tmp2.i = vmc->tmp1.i / vmc->tmp2.i;
+        vmc->tmp2.i = vmc->tmp1.i % vmc->tmp2.i;
     }
     vmc->setRegisterInt(vmc->dst, vmc->tmp2.i);
     vmc->pc_off(2);
@@ -2379,7 +2379,7 @@ void CH_Rem_Long::run(VmMethodContext *vmc) {
     if (vmc->tmp1.u8 == 0x8000000000000000ULL && vmc->tmp2.j == -1LL) {
         vmc->tmp2.j = 0LL;
     } else {
-        vmc->tmp2.j = vmc->tmp1.j / vmc->tmp2.j;
+        vmc->tmp2.j = vmc->tmp1.j % vmc->tmp2.j;
     }
     vmc->setRegisterLong(vmc->dst, vmc->tmp2.j);
     vmc->pc_off(2);
@@ -2580,7 +2580,7 @@ void CH_Rem_Double::run(VmMethodContext *vmc) {
 void CH_Add_Int_2Addr::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();
-    LOG_D("|%s-int-2addr v%d,v%d", "add", vmc->dst, vmc->src1);
+    LOG_D("|%s-int-2addr v%u,v%u", "add", vmc->dst, vmc->src1);
     vmc->setRegisterInt(vmc->dst,
                         vmc->getRegisterInt(vmc->dst)
                         + vmc->getRegisterInt(vmc->src1));
@@ -2590,7 +2590,7 @@ void CH_Add_Int_2Addr::run(VmMethodContext *vmc) {
 void CH_Sub_Int_2Addr::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();
-    LOG_D("|%s-int-2addr v%d,v%d", "sub", vmc->dst, vmc->src1);
+    LOG_D("|%s-int-2addr v%u,v%u", "sub", vmc->dst, vmc->src1);
     vmc->setRegisterInt(vmc->dst,
                         vmc->getRegisterInt(vmc->dst)
                         - vmc->getRegisterInt(vmc->src1));
@@ -2600,7 +2600,7 @@ void CH_Sub_Int_2Addr::run(VmMethodContext *vmc) {
 void CH_Mul_Int_2Addr::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();
-    LOG_D("|%s-int-2addr v%d,v%d", "mul", vmc->dst, vmc->src1);
+    LOG_D("|%s-int-2addr v%u,v%u", "mul", vmc->dst, vmc->src1);
     vmc->setRegisterInt(vmc->dst,
                         vmc->getRegisterInt(vmc->dst)
                         * vmc->getRegisterInt(vmc->src1));
@@ -2610,7 +2610,7 @@ void CH_Mul_Int_2Addr::run(VmMethodContext *vmc) {
 void CH_Div_Int_2Addr::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();
-    LOG_D("|%s-int-2addr v%d,v%d", "div", vmc->dst, vmc->src1);
+    LOG_D("|%s-int-2addr v%u,v%u", "div", vmc->dst, vmc->src1);
     vmc->tmp1.i = vmc->getRegisterInt(vmc->dst);
     vmc->tmp2.i = vmc->getRegisterInt(vmc->src1);
     if (vmc->tmp2.i == 0) {
@@ -2630,7 +2630,7 @@ void CH_Div_Int_2Addr::run(VmMethodContext *vmc) {
 void CH_Rem_Int_2Addr::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();
-    LOG_D("|%s-int-2addr v%d,v%d", "rem", vmc->dst, vmc->src1);
+    LOG_D("|%s-int-2addr v%u,v%u", "rem", vmc->dst, vmc->src1);
     vmc->tmp1.i = vmc->getRegisterInt(vmc->dst);
     vmc->tmp2.i = vmc->getRegisterInt(vmc->src1);
     if (vmc->tmp2.i == 0) {
@@ -2641,7 +2641,7 @@ void CH_Rem_Int_2Addr::run(VmMethodContext *vmc) {
     if (vmc->tmp1.u4 == 0x80000000u && vmc->tmp2.i == -1) {
         vmc->tmp2.i = 0;
     } else {
-        vmc->tmp2.i = vmc->tmp1.i / vmc->tmp2.i;
+        vmc->tmp2.i = vmc->tmp1.i % vmc->tmp2.i;
     }
     vmc->setRegisterInt(vmc->dst, vmc->tmp2.i);
     vmc->pc_off(2);
@@ -2650,7 +2650,7 @@ void CH_Rem_Int_2Addr::run(VmMethodContext *vmc) {
 void CH_And_Int_2Addr::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();
-    LOG_D("|%s-int-2addr v%d,v%d", "and", vmc->dst, vmc->src1);
+    LOG_D("|%s-int-2addr v%u,v%u", "and", vmc->dst, vmc->src1);
     vmc->setRegister(vmc->dst,
                      vmc->getRegister(vmc->dst)
                      & vmc->getRegister(vmc->src1));
@@ -2660,7 +2660,7 @@ void CH_And_Int_2Addr::run(VmMethodContext *vmc) {
 void CH_Or_Int_2Addr::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();
-    LOG_D("|%s-int-2addr v%d,v%d", "or", vmc->dst, vmc->src1);
+    LOG_D("|%s-int-2addr v%u,v%u", "or", vmc->dst, vmc->src1);
     vmc->setRegister(vmc->dst,
                      vmc->getRegister(vmc->dst)
                      * vmc->getRegister(vmc->src1));
@@ -2670,7 +2670,7 @@ void CH_Or_Int_2Addr::run(VmMethodContext *vmc) {
 void CH_Xor_Int_2Addr::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();
-    LOG_D("|%s-int-2addr v%d,v%d", "xor", vmc->dst, vmc->src1);
+    LOG_D("|%s-int-2addr v%u,v%u", "xor", vmc->dst, vmc->src1);
     vmc->setRegister(vmc->dst,
                      vmc->getRegister(vmc->dst)
                      ^ vmc->getRegister(vmc->src1));
@@ -2680,7 +2680,7 @@ void CH_Xor_Int_2Addr::run(VmMethodContext *vmc) {
 void CH_Shl_Int_2Addr::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();
-    LOG_D("|%s-int-2addr v%d,v%d", "shl", vmc->dst, vmc->src1);
+    LOG_D("|%s-int-2addr v%u,v%u", "shl", vmc->dst, vmc->src1);
     vmc->setRegisterInt(vmc->dst,
                         vmc->getRegisterInt(vmc->dst)
                                 << (vmc->getRegister(vmc->src1) & 0x1fu));
@@ -2690,7 +2690,7 @@ void CH_Shl_Int_2Addr::run(VmMethodContext *vmc) {
 void CH_Shr_Int_2Addr::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();
-    LOG_D("|%s-int-2addr v%d,v%d", "shr", vmc->dst, vmc->src1);
+    LOG_D("|%s-int-2addr v%u,v%u", "shr", vmc->dst, vmc->src1);
     vmc->setRegisterInt(vmc->dst,
                         vmc->getRegisterInt(vmc->dst)
                                 >> (vmc->getRegister(vmc->src1) & 0x1fu));
@@ -2700,7 +2700,7 @@ void CH_Shr_Int_2Addr::run(VmMethodContext *vmc) {
 void CH_Ushr_Int_2Addr::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();
-    LOG_D("|%s-int-2addr v%d,v%d", "ushr", vmc->dst, vmc->src1);
+    LOG_D("|%s-int-2addr v%u,v%u", "ushr", vmc->dst, vmc->src1);
     vmc->setRegister(vmc->dst,
                      vmc->getRegister(vmc->dst)
                              >> (vmc->getRegister(vmc->src1) & 0x1fu));
@@ -2710,7 +2710,7 @@ void CH_Ushr_Int_2Addr::run(VmMethodContext *vmc) {
 void CH_Add_Long_2Addr::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();
-    LOG_D("|%s-long-2addr v%d,v%d", "add", vmc->dst, vmc->src1);
+    LOG_D("|%s-long-2addr v%u,v%u", "add", vmc->dst, vmc->src1);
     vmc->setRegisterLong(vmc->dst,
                          vmc->getRegisterLong(vmc->dst)
                          + vmc->getRegisterLong(vmc->src1));
@@ -2720,7 +2720,7 @@ void CH_Add_Long_2Addr::run(VmMethodContext *vmc) {
 void CH_Sub_Long_2Addr::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();
-    LOG_D("|%s-long-2addr v%d,v%d", "sub", vmc->dst, vmc->src1);
+    LOG_D("|%s-long-2addr v%u,v%u", "sub", vmc->dst, vmc->src1);
     vmc->setRegisterLong(vmc->dst,
                          vmc->getRegisterLong(vmc->dst)
                          - vmc->getRegisterLong(vmc->src1));
@@ -2730,7 +2730,7 @@ void CH_Sub_Long_2Addr::run(VmMethodContext *vmc) {
 void CH_Mul_Long_2Addr::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();
-    LOG_D("|%s-long-2addr v%d,v%d", "mul", vmc->dst, vmc->src1);
+    LOG_D("|%s-long-2addr v%u,v%u", "mul", vmc->dst, vmc->src1);
     vmc->setRegisterLong(vmc->dst,
                          vmc->getRegisterLong(vmc->dst)
                          * vmc->getRegisterLong(vmc->src1));
@@ -2740,7 +2740,7 @@ void CH_Mul_Long_2Addr::run(VmMethodContext *vmc) {
 void CH_Div_Long_2Addr::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();
-    LOG_D("|%s-long-2addr v%d,v%d", "div", vmc->dst, vmc->src1);
+    LOG_D("|%s-long-2addr v%u,v%u", "div", vmc->dst, vmc->src1);
     vmc->tmp1.j = vmc->getRegisterLong(vmc->dst);
     vmc->tmp2.j = vmc->getRegisterLong(vmc->src1);
     if (vmc->tmp2.j == 0) {
@@ -2760,7 +2760,7 @@ void CH_Div_Long_2Addr::run(VmMethodContext *vmc) {
 void CH_Rem_Long_2Addr::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();
-    LOG_D("|%s-long-2addr v%d,v%d", "rem", vmc->dst, vmc->src1);
+    LOG_D("|%s-long-2addr v%u,v%u", "rem", vmc->dst, vmc->src1);
     vmc->tmp1.j = vmc->getRegisterLong(vmc->dst);
     vmc->tmp2.j = vmc->getRegisterLong(vmc->src1);
     if (vmc->tmp2.j == 0) {
@@ -2771,7 +2771,7 @@ void CH_Rem_Long_2Addr::run(VmMethodContext *vmc) {
     if (vmc->tmp1.u8 == 0x8000000000000000ULL && vmc->tmp2.j == -1LL) {
         vmc->tmp2.j = 0LL;
     } else {
-        vmc->tmp2.j = vmc->tmp1.j / vmc->tmp2.j;
+        vmc->tmp2.j = vmc->tmp1.j % vmc->tmp2.j;
     }
     vmc->setRegisterLong(vmc->dst, vmc->tmp2.j);
     vmc->pc_off(2);
@@ -2780,7 +2780,7 @@ void CH_Rem_Long_2Addr::run(VmMethodContext *vmc) {
 void CH_And_Long_2Addr::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();
-    LOG_D("|%s-long-2addr v%d,v%d", "and", vmc->dst, vmc->src1);
+    LOG_D("|%s-long-2addr v%u,v%u", "and", vmc->dst, vmc->src1);
     vmc->setRegisterWide(vmc->dst,
                          vmc->getRegisterWide(vmc->dst)
                          & vmc->getRegisterWide(vmc->src1));
@@ -2790,7 +2790,7 @@ void CH_And_Long_2Addr::run(VmMethodContext *vmc) {
 void CH_Or_Long_2Addr::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();
-    LOG_D("|%s-long-2addr v%d,v%d", "or", vmc->dst, vmc->src1);
+    LOG_D("|%s-long-2addr v%u,v%u", "or", vmc->dst, vmc->src1);
     vmc->setRegisterWide(vmc->dst,
                          vmc->getRegisterWide(vmc->dst)
                          | vmc->getRegisterWide(vmc->src1));
@@ -2800,7 +2800,7 @@ void CH_Or_Long_2Addr::run(VmMethodContext *vmc) {
 void CH_Xor_Long_2Addr::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();
-    LOG_D("|%s-long-2addr v%d,v%d", "xor", vmc->dst, vmc->src1);
+    LOG_D("|%s-long-2addr v%u,v%u", "xor", vmc->dst, vmc->src1);
     vmc->setRegisterWide(vmc->dst,
                          vmc->getRegisterWide(vmc->dst)
                          ^ vmc->getRegisterWide(vmc->src1));
@@ -2810,7 +2810,7 @@ void CH_Xor_Long_2Addr::run(VmMethodContext *vmc) {
 void CH_Shl_Long_2Addr::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();
-    LOG_D("|%s-long-2addr v%d,v%d", "shl", vmc->dst, vmc->src1);
+    LOG_D("|%s-long-2addr v%u,v%u", "shl", vmc->dst, vmc->src1);
     vmc->setRegisterLong(vmc->dst,
                          vmc->getRegisterLong(vmc->dst)
                                  << (vmc->getRegister(vmc->src1) & 0x3fu));
@@ -2820,7 +2820,7 @@ void CH_Shl_Long_2Addr::run(VmMethodContext *vmc) {
 void CH_Shr_Long_2Addr::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();
-    LOG_D("|%s-long-2addr v%d,v%d", "shr", vmc->dst, vmc->src1);
+    LOG_D("|%s-long-2addr v%u,v%u", "shr", vmc->dst, vmc->src1);
     vmc->setRegisterLong(vmc->dst,
                          vmc->getRegisterLong(vmc->dst)
                                  << (vmc->getRegister(vmc->src1) & 0x3fu));
@@ -2830,7 +2830,7 @@ void CH_Shr_Long_2Addr::run(VmMethodContext *vmc) {
 void CH_Ushr_Long_2Addr::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();
-    LOG_D("|%s-long-2addr v%d,v%d", "ushr", vmc->dst, vmc->src1);
+    LOG_D("|%s-long-2addr v%u,v%u", "ushr", vmc->dst, vmc->src1);
     vmc->setRegisterWide(vmc->dst,
                          vmc->getRegisterWide(vmc->dst)
                                  << (vmc->getRegister(vmc->src1) & 0x3fu));
@@ -2840,7 +2840,7 @@ void CH_Ushr_Long_2Addr::run(VmMethodContext *vmc) {
 void CH_Add_Float_2Addr::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();
-    LOG_D("|%s-float-2addr v%d,v%d", "add", vmc->dst, vmc->src1);
+    LOG_D("|%s-float-2addr v%u,v%u", "add", vmc->dst, vmc->src1);
     vmc->setRegisterFloat(vmc->dst,
                           vmc->getRegisterFloat(vmc->dst)
                           + vmc->getRegisterFloat(vmc->src1));
@@ -2850,7 +2850,7 @@ void CH_Add_Float_2Addr::run(VmMethodContext *vmc) {
 void CH_Sub_Float_2Addr::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();
-    LOG_D("|%s-float-2addr v%d,v%d", "sub", vmc->dst, vmc->src1);
+    LOG_D("|%s-float-2addr v%u,v%u", "sub", vmc->dst, vmc->src1);
     vmc->setRegisterFloat(vmc->dst,
                           vmc->getRegisterFloat(vmc->dst)
                           - vmc->getRegisterFloat(vmc->src1));
@@ -2860,7 +2860,7 @@ void CH_Sub_Float_2Addr::run(VmMethodContext *vmc) {
 void CH_Mul_Float_2Addr::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();
-    LOG_D("|%s-float-2addr v%d,v%d", "mul", vmc->dst, vmc->src1);
+    LOG_D("|%s-float-2addr v%u,v%u", "mul", vmc->dst, vmc->src1);
     vmc->setRegisterFloat(vmc->dst,
                           vmc->getRegisterFloat(vmc->dst)
                           * vmc->getRegisterFloat(vmc->src1));
@@ -2870,7 +2870,7 @@ void CH_Mul_Float_2Addr::run(VmMethodContext *vmc) {
 void CH_Div_Float_2Addr::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();
-    LOG_D("|%s-float-2addr v%d,v%d", "div", vmc->dst, vmc->src1);
+    LOG_D("|%s-float-2addr v%u,v%u", "div", vmc->dst, vmc->src1);
     vmc->setRegisterFloat(vmc->dst,
                           vmc->getRegisterFloat(vmc->dst)
                           / vmc->getRegisterFloat(vmc->src1));
@@ -2880,7 +2880,7 @@ void CH_Div_Float_2Addr::run(VmMethodContext *vmc) {
 void CH_Rem_Float_2Addr::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();
-    LOG_D("|%s-float-2addr v%d,v%d", "rem", vmc->dst, vmc->src1);
+    LOG_D("|%s-float-2addr v%u,v%u", "rem", vmc->dst, vmc->src1);
     vmc->setRegisterFloat(vmc->dst,
                           std::fmodf(vmc->getRegisterFloat(vmc->dst),
                                      vmc->getRegisterFloat(vmc->src1)));
@@ -2890,7 +2890,7 @@ void CH_Rem_Float_2Addr::run(VmMethodContext *vmc) {
 void CH_Add_Double_2Addr::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();
-    LOG_D("|%s-double-2addr v%d,v%d", "add", vmc->dst, vmc->src1);
+    LOG_D("|%s-double-2addr v%u,v%u", "add", vmc->dst, vmc->src1);
     vmc->setRegisterDouble(vmc->dst,
                            vmc->getRegisterDouble(vmc->dst)
                            + vmc->getRegisterDouble(vmc->src1));
@@ -2900,7 +2900,7 @@ void CH_Add_Double_2Addr::run(VmMethodContext *vmc) {
 void CH_Sub_Double_2Addr::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();
-    LOG_D("|%s-double-2addr v%d,v%d", "sub", vmc->dst, vmc->src1);
+    LOG_D("|%s-double-2addr v%u,v%u", "sub", vmc->dst, vmc->src1);
     vmc->setRegisterDouble(vmc->dst,
                            vmc->getRegisterDouble(vmc->dst)
                            - vmc->getRegisterDouble(vmc->src1));
@@ -2910,7 +2910,7 @@ void CH_Sub_Double_2Addr::run(VmMethodContext *vmc) {
 void CH_Mul_Double_2Addr::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();
-    LOG_D("|%s-double-2addr v%d,v%d", "mul", vmc->dst, vmc->src1);
+    LOG_D("|%s-double-2addr v%u,v%u", "mul", vmc->dst, vmc->src1);
     vmc->setRegisterDouble(vmc->dst,
                            vmc->getRegisterDouble(vmc->dst)
                            * vmc->getRegisterDouble(vmc->src1));
@@ -2920,7 +2920,7 @@ void CH_Mul_Double_2Addr::run(VmMethodContext *vmc) {
 void CH_Div_Double_2Addr::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();
-    LOG_D("|%s-double-2addr v%d,v%d", "div", vmc->dst, vmc->src1);
+    LOG_D("|%s-double-2addr v%u,v%u", "div", vmc->dst, vmc->src1);
     vmc->setRegisterDouble(vmc->dst,
                            vmc->getRegisterDouble(vmc->dst)
                            / vmc->getRegisterDouble(vmc->src1));
@@ -2930,7 +2930,7 @@ void CH_Div_Double_2Addr::run(VmMethodContext *vmc) {
 void CH_Rem_Double_2Addr::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();
-    LOG_D("|%s-double-2addr v%d,v%d", "rem", vmc->dst, vmc->src1);
+    LOG_D("|%s-double-2addr v%u,v%u", "rem", vmc->dst, vmc->src1);
     vmc->setRegisterDouble(vmc->dst,
                            std::fmod(vmc->getRegisterDouble(vmc->dst),
                                      vmc->getRegisterDouble(vmc->src1)));
@@ -2941,7 +2941,7 @@ void CH_Add_Int_Lit16::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();
     vmc->tmp1.u2 = vmc->fetch(1);
-    LOG_D("|%s-int/lit16 v%d,v%d,#%dx",
+    LOG_D("|%s-int/lit16 v%u,v%u,#%d",
           "add", vmc->dst, vmc->src1, vmc->tmp1.s2);
     vmc->setRegisterInt(vmc->dst,
                         vmc->getRegisterInt(vmc->src1)
@@ -2953,7 +2953,7 @@ void CH_RSub_Int_Lit16::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();
     vmc->tmp1.u2 = vmc->fetch(1);
-    LOG_D("|%s-int/lit16 v%d,v%d,#%dx",
+    LOG_D("|%s-int/lit16 v%u,v%u,#%d",
           "rsub", vmc->dst, vmc->src1, vmc->tmp1.s2);
     vmc->setRegisterInt(vmc->dst,
                         vmc->tmp1.s2
@@ -2965,7 +2965,7 @@ void CH_Mul_Int_Lit16::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();
     vmc->tmp1.u2 = vmc->fetch(1);
-    LOG_D("|%s-int/lit16 v%d,v%d,#%dx",
+    LOG_D("|%s-int/lit16 v%u,v%u,#%d",
           "mul", vmc->dst, vmc->src1, vmc->tmp1.s2);
     vmc->setRegisterInt(vmc->dst,
                         vmc->getRegisterInt(vmc->src1)
@@ -2977,7 +2977,7 @@ void CH_Div_Int_Lit16::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();
     vmc->tmp2.u2 = vmc->fetch(1);
-    LOG_D("|%s-int/lit16 v%d,v%d,#%dx",
+    LOG_D("|%s-int/lit16 v%u,v%u,#%d",
           "div", vmc->dst, vmc->src1, vmc->tmp2.s2);
     vmc->tmp1.s4 = vmc->getRegisterInt(vmc->src1);
     if (vmc->tmp2.s2 == 0) {
@@ -2998,7 +2998,7 @@ void CH_Rem_Int_Lit16::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();
     vmc->tmp2.u2 = vmc->fetch(1);
-    LOG_D("|%s-int/lit16 v%d,v%d,#%dx",
+    LOG_D("|%s-int/lit16 v%u,v%u,#%d",
           "rem", vmc->dst, vmc->src1, vmc->tmp2.s2);
     vmc->tmp1.s4 = vmc->getRegisterInt(vmc->src1);
     if (vmc->tmp2.s2 == 0) {
@@ -3019,7 +3019,7 @@ void CH_And_Int_Lit16::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();
     vmc->tmp1.u2 = vmc->fetch(1);
-    LOG_D("|%s-int/lit16 v%d,v%d,#%dx",
+    LOG_D("|%s-int/lit16 v%u,v%u,#%d",
           "and", vmc->dst, vmc->src1, vmc->tmp1.s2);
     vmc->setRegister(vmc->dst,
                      vmc->getRegister(vmc->src1)
@@ -3031,7 +3031,7 @@ void CH_Or_Int_Lit16::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();
     vmc->tmp1.u2 = vmc->fetch(1);
-    LOG_D("|%s-int/lit16 v%d,v%d,#%dx",
+    LOG_D("|%s-int/lit16 v%u,v%u,#%d",
           "or", vmc->dst, vmc->src1, vmc->tmp1.s2);
     vmc->setRegister(vmc->dst,
                      vmc->getRegister(vmc->src1)
@@ -3043,7 +3043,7 @@ void CH_Xor_Int_Lit16::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();
     vmc->tmp1.u2 = vmc->fetch(1);
-    LOG_D("|%s-int/lit16 v%d,v%d,#%dx",
+    LOG_D("|%s-int/lit16 v%u,v%u,#%d",
           "xor", vmc->dst, vmc->src1, vmc->tmp1.s2);
     vmc->setRegister(vmc->dst,
                      vmc->getRegister(vmc->src1)
@@ -3056,7 +3056,7 @@ void CH_Add_Int_Lit8::run(VmMethodContext *vmc) {
     vmc->src1 = vmc->fetch(1);
     vmc->tmp1.u1 = vmc->src1 >> 8u;
     vmc->src1 = vmc->src1 & 0xffu;
-    LOG_D("%s-int/lit8 v%d,v%d,#%d",
+    LOG_D("%s-int/lit8 v%u,v%u,#%d",
           "add", vmc->dst, vmc->src1, vmc->tmp1.s1);
     vmc->setRegisterInt(vmc->dst,
                         vmc->getRegisterInt(vmc->src1)
@@ -3069,7 +3069,7 @@ void CH_RSub_Int_Lit8::run(VmMethodContext *vmc) {
     vmc->src1 = vmc->fetch(1);
     vmc->tmp1.u1 = vmc->src1 >> 8u;
     vmc->src1 = vmc->src1 & 0xffu;
-    LOG_D("%s-int/lit8 v%d,v%d,#%d",
+    LOG_D("%s-int/lit8 v%u,v%u,#%d",
           "rsub", vmc->dst, vmc->src1, vmc->tmp1.s1);
     vmc->setRegisterInt(vmc->dst,
                         vmc->tmp1.s1
@@ -3082,7 +3082,7 @@ void CH_Mul_Int_Lit8::run(VmMethodContext *vmc) {
     vmc->src1 = vmc->fetch(1);
     vmc->tmp1.u1 = vmc->src1 >> 8u;
     vmc->src1 = vmc->src1 & 0xffu;
-    LOG_D("%s-int/lit8 v%d,v%d,#%d",
+    LOG_D("%s-int/lit8 v%u,v%u,#%d",
           "mul", vmc->dst, vmc->src1, vmc->tmp1.s1);
     vmc->setRegisterInt(vmc->dst,
                         vmc->getRegisterInt(vmc->src1)
@@ -3091,11 +3091,47 @@ void CH_Mul_Int_Lit8::run(VmMethodContext *vmc) {
 }
 
 void CH_Div_Int_Lit8::run(VmMethodContext *vmc) {
-
+    vmc->dst = vmc->inst_AA();
+    vmc->src1 = vmc->fetch(1);
+    vmc->tmp2.u1 = vmc->src1 >> 8u;
+    vmc->src1 = vmc->src1 & 0xffu;
+    LOG_D("%s-int/lit8 v%u,v%u,#%d",
+          "div", vmc->dst, vmc->src1, vmc->tmp2.s1);
+    vmc->tmp1.s4 = vmc->getRegisterInt(vmc->src1);
+    if (vmc->tmp2.s1 == 0) {
+        JAVAException::throwArithmeticException("divide by zero");
+        JAVAException::throwJavaException(vmc);
+        return;
+    }
+    if (vmc->tmp1.u4 == 0x80000000u && vmc->tmp2.s1 != -1) {
+        vmc->tmp2.s4 = vmc->tmp1.s4;
+    } else {
+        vmc->tmp2.s4 = vmc->tmp1.s4 / vmc->tmp2.s4;
+    }
+    vmc->setRegisterInt(vmc->dst, vmc->tmp2.s4);
+    vmc->pc_off(2);
 }
 
 void CH_Rem_Int_Lit8::run(VmMethodContext *vmc) {
-
+    vmc->dst = vmc->inst_AA();
+    vmc->src1 = vmc->fetch(1);
+    vmc->tmp2.u1 = vmc->src1 >> 8u;
+    vmc->src1 = vmc->src1 & 0xffu;
+    LOG_D("%s-int/lit8 v%u,v%u,#%d",
+          "rem", vmc->dst, vmc->src1, vmc->tmp2.s1);
+    vmc->tmp1.s4 = vmc->getRegisterInt(vmc->src1);
+    if (vmc->tmp2.s1 == 0) {
+        JAVAException::throwArithmeticException("divide by zero");
+        JAVAException::throwJavaException(vmc);
+        return;
+    }
+    if (vmc->tmp1.u4 == 0x80000000u && vmc->tmp2.s1 != -1) {
+        vmc->tmp2.s4 = 0;
+    } else {
+        vmc->tmp2.s4 = vmc->tmp1.s4 % vmc->tmp2.s4;
+    }
+    vmc->setRegisterInt(vmc->dst, vmc->tmp2.s4);
+    vmc->pc_off(2);
 }
 
 void CH_And_Int_Lit8::run(VmMethodContext *vmc) {
@@ -3103,7 +3139,7 @@ void CH_And_Int_Lit8::run(VmMethodContext *vmc) {
     vmc->src1 = vmc->fetch(1);
     vmc->tmp1.u1 = vmc->src1 >> 8u;
     vmc->src1 = vmc->src1 & 0xffu;
-    LOG_D("%s-int/lit8 v%d,v%d,#%d",
+    LOG_D("%s-int/lit8 v%u,v%u,#%d",
           "and", vmc->dst, vmc->src1, vmc->tmp1.s1);
     vmc->setRegister(vmc->dst,
                      vmc->getRegister(vmc->src1)
@@ -3116,7 +3152,7 @@ void CH_Or_Int_Lit8::run(VmMethodContext *vmc) {
     vmc->src1 = vmc->fetch(1);
     vmc->tmp1.u1 = vmc->src1 >> 8u;
     vmc->src1 = vmc->src1 & 0xffu;
-    LOG_D("%s-int/lit8 v%d,v%d,#%d",
+    LOG_D("%s-int/lit8 v%u,v%u,#%d",
           "or", vmc->dst, vmc->src1, vmc->tmp1.s1);
     vmc->setRegister(vmc->dst,
                      vmc->getRegister(vmc->src1)
@@ -3129,7 +3165,7 @@ void CH_Xor_Int_Lit8::run(VmMethodContext *vmc) {
     vmc->src1 = vmc->fetch(1);
     vmc->tmp1.u1 = vmc->src1 >> 8u;
     vmc->src1 = vmc->src1 & 0xffu;
-    LOG_D("%s-int/lit8 v%d,v%d,#%d",
+    LOG_D("%s-int/lit8 v%u,v%u,#%d",
           "add", vmc->dst, vmc->src1, vmc->tmp1.s1);
     vmc->setRegister(vmc->dst,
                      vmc->getRegister(vmc->src1)
@@ -3142,7 +3178,7 @@ void CH_Shl_Int_Lit8::run(VmMethodContext *vmc) {
     vmc->src1 = vmc->fetch(1);
     vmc->tmp1.u1 = vmc->src1 >> 8u;
     vmc->src1 = vmc->src1 & 0xffu;
-    LOG_D("%s-int/lit8 v%d,v%d,#%d",
+    LOG_D("%s-int/lit8 v%u,v%u,#%d",
           "shl", vmc->dst, vmc->src1, vmc->tmp1.s1);
     vmc->setRegisterInt(vmc->dst,
                         vmc->getRegisterInt(vmc->src1)
@@ -3155,7 +3191,7 @@ void CH_Shr_Int_Lit8::run(VmMethodContext *vmc) {
     vmc->src1 = vmc->fetch(1);
     vmc->tmp1.u1 = vmc->src1 >> 8u;
     vmc->src1 = vmc->src1 & 0xffu;
-    LOG_D("%s-int/lit8 v%d,v%d,#%d",
+    LOG_D("%s-int/lit8 v%u,v%u,#%d",
           "shr", vmc->dst, vmc->src1, vmc->tmp1.s1);
     vmc->setRegisterInt(vmc->dst,
                         vmc->getRegisterInt(vmc->src1)
@@ -3168,7 +3204,7 @@ void CH_Ushr_Int_Lit8::run(VmMethodContext *vmc) {
     vmc->src1 = vmc->fetch(1);
     vmc->tmp1.u1 = vmc->src1 >> 8u;
     vmc->src1 = vmc->src1 & 0xffu;
-    LOG_D("%s-int/lit8 v%d,v%d,#%d",
+    LOG_D("%s-int/lit8 v%u,v%u,#%d",
           "ushr", vmc->dst, vmc->src1, vmc->tmp1.s1);
     vmc->setRegister(vmc->dst,
                      vmc->getRegister(vmc->src1)
@@ -3180,7 +3216,7 @@ void CH_Iget_Volatile::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();          /* object ptr */
     vmc->tmp1.u4 = vmc->fetch(1);   /* field ref */
-    LOG_D("|iget%s v%d,v%d,field@%u",
+    LOG_D("|iget%s v%u,v%u,field@%u",
           "-normal-volatile", vmc->dst, vmc->src1, vmc->tmp1.u4);
     vmc->tmp2.l = vmc->getRegisterAsObject(vmc->src1);
     if (!JAVAException::checkForNull(vmc->tmp2.l)) {
@@ -3203,7 +3239,7 @@ void CH_Iput_Volatile::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();          /* object ptr */
     vmc->tmp1.u4 = vmc->fetch(1);   /* field ref */
-    LOG_D("|iput%s v%d,v%d,field@%u",
+    LOG_D("|iput%s v%u,v%u,field@%u",
           "-normal-volatile", vmc->dst, vmc->src1, vmc->tmp1.u4);
     vmc->tmp2.l = vmc->getRegisterAsObject(vmc->src1);
     if (!JAVAException::checkForNull(vmc->tmp2.l)) {
@@ -3225,7 +3261,7 @@ void CH_Iput_Volatile::run(VmMethodContext *vmc) {
 void CH_Sget_Volatile::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_AA();
     vmc->tmp1.u4 = vmc->fetch(1);   /* field ref */
-    LOG_D("|sget%s v%d,sfield@%u",
+    LOG_D("|sget%s v%u,sfield@%u",
           "-normal-volatile", vmc->dst, vmc->tmp1.u4);
     RegValue val{};
     if (!vmc->method->resolveField(vmc->tmp1.u4, nullptr, &val)) {
@@ -3242,7 +3278,7 @@ void CH_Sget_Volatile::run(VmMethodContext *vmc) {
 void CH_Sput_Volatile::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_AA();
     vmc->tmp1.u4 = vmc->fetch(1);    /* field ref */
-    LOG_D("sput%s v%d,sfield@%u",
+    LOG_D("sput%s v%u,sfield@%u",
           "-normal-volatile", vmc->dst, vmc->tmp1.u4);
     RegValue val{};
     val.i = vmc->getRegister(vmc->dst);
@@ -3260,7 +3296,7 @@ void CH_Iget_Object_Volatile::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();          /* object ptr */
     vmc->tmp1.u4 = vmc->fetch(1);   /* field ref */
-    LOG_D("|iget%s v%d,v%d,field@%u",
+    LOG_D("|iget%s v%u,v%u,field@%u",
           "-object-volatile", vmc->dst, vmc->src1, vmc->tmp1.u4);
     vmc->tmp2.l = vmc->getRegisterAsObject(vmc->src1);
     if (!JAVAException::checkForNull(vmc->tmp2.l)) {
@@ -3283,7 +3319,7 @@ void CH_Iget_Wide_Volatile::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();          /* object ptr */
     vmc->tmp1.u4 = vmc->fetch(1);   /* field ref */
-    LOG_D("|iget%s v%d,v%d,field@%u",
+    LOG_D("|iget%s v%u,v%u,field@%u",
           "-wide-volatile", vmc->dst, vmc->src1, vmc->tmp1.u4);
     vmc->tmp2.l = vmc->getRegisterAsObject(vmc->src1);
     if (!JAVAException::checkForNull(vmc->tmp2.l)) {
@@ -3306,7 +3342,7 @@ void CH_Iput_Wide_Volatile::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();          /* object ptr */
     vmc->tmp1.u4 = vmc->fetch(1);   /* field ref */
-    LOG_D("|iput%s v%d,v%d,field@%u",
+    LOG_D("|iput%s v%u,v%u,field@%u",
           "-wide-volatile", vmc->dst, vmc->src1, vmc->tmp1.u4);
     vmc->tmp2.l = vmc->getRegisterAsObject(vmc->src1);
     if (!JAVAException::checkForNull(vmc->tmp2.l)) {
@@ -3328,7 +3364,7 @@ void CH_Iput_Wide_Volatile::run(VmMethodContext *vmc) {
 void CH_Sget_Wide_Volatile::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_AA();
     vmc->tmp1.u4 = vmc->fetch(1);   /* field ref */
-    LOG_D("|sget%s v%d,sfield@%u",
+    LOG_D("|sget%s v%u,sfield@%u",
           "-wide-volatile", vmc->dst, vmc->tmp1.u4);
     RegValue val{};
     if (!vmc->method->resolveField(vmc->tmp1.u4, nullptr, &val)) {
@@ -3345,7 +3381,7 @@ void CH_Sget_Wide_Volatile::run(VmMethodContext *vmc) {
 void CH_Sput_Wide_Volatile::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_AA();
     vmc->tmp1.u4 = vmc->fetch(1);    /* field ref */
-    LOG_D("|sput%s v%d,sfield@%u",
+    LOG_D("|sput%s v%u,sfield@%u",
           "-wide-volatile", vmc->dst, vmc->tmp1.u4);
     RegValue val{};
     val.j = vmc->getRegisterLong(vmc->dst);
@@ -3363,7 +3399,7 @@ void CH_Iput_Object_Volatile::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();          /* object ptr */
     vmc->tmp1.u4 = vmc->fetch(1);   /* field ref */
-    LOG_D("|iput%s v%d,v%d,field@%u",
+    LOG_D("|iput%s v%u,v%u,field@%u",
           "-object-volatile", vmc->dst, vmc->src1, vmc->tmp1.u4);
     vmc->tmp2.l = vmc->getRegisterAsObject(vmc->src1);
     if (!JAVAException::checkForNull(vmc->tmp2.l)) {
@@ -3376,16 +3412,16 @@ void CH_Iput_Object_Volatile::run(VmMethodContext *vmc) {
         JAVAException::throwJavaException(vmc);
         return;
     }
-    LOG_D("+ IPUT '%s'=0x%08lx",
+    LOG_D("+ IPUT '%s'=%p",
           vmc->method->resolveFieldName(vmc->tmp1.u4),
-          vmc->getRegisterWide(vmc->dst));
+          vmc->getRegisterAsObject(vmc->dst));
     vmc->pc_off(2);
 }
 
 void CH_Sget_Object_Volatile::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_AA();
     vmc->tmp1.u4 = vmc->fetch(1);   /* field ref */
-    LOG_D("|sget%s v%d,sfield@%u",
+    LOG_D("|sget%s v%u,sfield@%u",
           "-object-volatile", vmc->dst, vmc->tmp1.u4);
     RegValue val{};
     if (!vmc->method->resolveField(vmc->tmp1.u4, nullptr, &val)) {
@@ -3393,16 +3429,16 @@ void CH_Sget_Object_Volatile::run(VmMethodContext *vmc) {
         return;
     }
     vmc->setRegisterAsObject(vmc->dst, val.l);
-    LOG_D("+ SGET '%s'=0x%08lx",
+    LOG_D("+ SGET '%s'=%p",
           vmc->method->resolveFieldName(vmc->tmp1.u4),
-          vmc->getRegisterWide(vmc->dst));
+          vmc->getRegisterAsObject(vmc->dst));
     vmc->pc_off(2);
 }
 
 void CH_Sput_Object_Volatile::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_AA();
     vmc->tmp1.u4 = vmc->fetch(1);    /* field ref */
-    LOG_D("|sput%s v%d,sfield@%u",
+    LOG_D("|sput%s v%u,sfield@%u",
           "-object-volatile", vmc->dst, vmc->tmp1.u4);
     RegValue val{};
     val.i = vmc->getRegister(vmc->dst);
@@ -3410,9 +3446,9 @@ void CH_Sput_Object_Volatile::run(VmMethodContext *vmc) {
         JAVAException::throwJavaException(vmc);
         return;
     }
-    LOG_D("+ SPUT '%s'=0x%08lx",
+    LOG_D("+ SPUT '%s'=%p",
           vmc->method->resolveFieldName(vmc->tmp1.u4),
-          vmc->getRegisterWide(vmc->dst));
+          vmc->getRegisterAsObject(vmc->dst));
     vmc->pc_off(2);
 }
 
@@ -3423,7 +3459,65 @@ void JAVAException::throwJavaException(VmMethodContext *vmc) {
 }
 
 bool JAVAException::handleJavaException(VmMethodContext *vmc) {
+    /*
+     * We need to unroll to the catch block or the nearest "break"
+     * frame.
+     *
+     * A break frame could indicate that we have reached an intermediate
+     * native call, or have gone off the top of the stack and the thread
+     * needs to exit.  Either way, we return from here, leaving the
+     * exception raised.
+     *
+     * If we do find a catch block, we want to transfer execution to
+     * that point.
+     *
+     * Note this can cause an exception while resolving classes in
+     * the "catch" blocks.
+     */
 
+    JNIEnv *env = VM_CONTEXT::env;
+    const DexTry *pTry = (DexTry *) vmc->method->code->triesAndHandlersBuf;
+    const u1 *catchHandlerList = (u1 *) (pTry + vmc->method->code->triesSize);
+    const u4 pc_off = vmc->pc_cur();
+    const DexTry *pBestTry = nullptr;
+    u4 catchOff = -1;
+    for (int i = 0; i < vmc->method->code->triesSize; ++i, pTry++) {
+        if (pTry->startAddr <= pc_off && pc_off < pTry->startAddr + pTry->insnCount &&
+            (pBestTry == nullptr || (pBestTry->startAddr < pTry->startAddr))) {
+            const u1 *pCatchHandler = catchHandlerList + pTry->handlerOff;
+            int size = readSignedLeb128(&pCatchHandler);
+            // find catch
+            bool catchFlag = false;
+            for (int j = 0; j < abs(size); j++) {
+                u4 type_idx = static_cast<u4>(readUnsignedLeb128(&pCatchHandler));
+                u4 address = readUnsignedLeb128(&pCatchHandler);
+                std::string catchClassName = vmc->method->dexFile->dexStringByTypeIdx(type_idx);
+                if (catchClassName.size() < 3) {
+                    continue;
+                }
+                catchClassName = catchClassName.substr(1, catchClassName.size() - 2);
+                jclass catchExceptionClazz = (*env).FindClass(catchClassName.data());
+                assert(catchExceptionClazz != nullptr);
+                if ((*env).IsInstanceOf(vmc->curException, catchExceptionClazz)) {
+                    // may catch the exception
+                    pBestTry = pTry;
+                    catchOff = address;
+                    catchFlag = true;
+                    break;
+                }
+            }
+            if (!catchFlag && size <= 0) {
+                catchOff = readUnsignedLeb128(&pCatchHandler);
+            }
+        }
+    }
+
+    if (catchOff == -1) {       // not found.
+        return false;
+    } else {
+        vmc->set_pc(catchOff);
+        return true;
+    }
 }
 
 bool JAVAException::checkForNull(jobject obj) {

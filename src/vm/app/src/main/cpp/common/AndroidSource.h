@@ -447,37 +447,95 @@ enum {
      | ACC_DECLARED_SYNCHRONIZED),
 };
 
-#define kVerifyErrorRefTypeShift        (6u)
-#define kThrowShow_accessFromClass      (1u)
 
 /*
- * An enumeration of problems that can turn up during verification.
+ * Direct-mapped "try_item".
  */
-enum VerifyError {
-    VERIFY_ERROR_NONE = 0,      /* no error; must be zero */
-    VERIFY_ERROR_GENERIC,       /* VerifyError */
-
-    VERIFY_ERROR_NO_CLASS,      /* NoClassDefFoundError */
-    VERIFY_ERROR_NO_FIELD,      /* NoSuchFieldError */
-    VERIFY_ERROR_NO_METHOD,     /* NoSuchMethodError */
-    VERIFY_ERROR_ACCESS_CLASS,  /* IllegalAccessError */
-    VERIFY_ERROR_ACCESS_FIELD,  /* IllegalAccessError */
-    VERIFY_ERROR_ACCESS_METHOD, /* IllegalAccessError */
-    VERIFY_ERROR_CLASS_CHANGE,  /* IncompatibleClassChangeError */
-    VERIFY_ERROR_INSTANTIATION, /* InstantiationError */
+struct DexTry {
+    u4 startAddr;          /* start address, in 16-bit code units */
+    u2 insnCount;          /* instruction count, in 16-bit code units */
+    u2 handlerOff;         /* offset in encoded handler data to handlers */
 };
+
+
 
 /*
- * Identifies the type of reference in the instruction that generated the
- * verify error (e.g. VERIFY_ERROR_ACCESS_CLASS could come from a method,
- * field, or class reference).
- *
- * This must fit in two bits.
+* Reads an unsigned LEB128 value, updating the given pointer to point
+* just past the end of the read value. This function tolerates
+* non-zero high-order bits in the fifth encoded byte.
+*/
+uint32_t readUnsignedLeb128(const u1 **pStream) {
+    const u1 *ptr = *pStream;
+    uint32_t result = *(ptr++);
+
+    if (result > 0x7f) {
+        int cur = *(ptr++);
+        result = (result & 0x7f) | ((cur & 0x7f) << 7);
+        if (cur > 0x7f) {
+            cur = *(ptr++);
+            result |= (cur & 0x7f) << 14;
+            if (cur > 0x7f) {
+                cur = *(ptr++);
+                result |= (cur & 0x7f) << 21;
+                if (cur > 0x7f) {
+                    /*
+                     * Note: We don't check to see if cur is out of
+                     * range here, meaning we tolerate garbage in the
+                     * high four-order bits.
+                     */
+                    cur = *(ptr++);
+                    result |= cur << 28;
+                }
+            }
+        }
+    }
+
+    *pStream = ptr;
+    return result;
+}
+
+/*
+ * Reads a signed LEB128 value, updating the given pointer to point
+ * just past the end of the read value. This function tolerates
+ * non-zero high-order bits in the fifth encoded byte.
  */
-enum VerifyErrorRefType {
-    VERIFY_ERROR_REF_CLASS = 0,
-    VERIFY_ERROR_REF_FIELD = 1,
-    VERIFY_ERROR_REF_METHOD = 2,
-};
+int readSignedLeb128(const u1 **pStream) {
+    const u1 *ptr = *pStream;
+    int result = *(ptr++);
+
+    if (result <= 0x7f) {
+        result = (result << 25) >> 25;
+    } else {
+        int cur = *(ptr++);
+        result = (result & 0x7f) | ((cur & 0x7f) << 7);
+        if (cur <= 0x7f) {
+            result = (result << 18) >> 18;
+        } else {
+            cur = *(ptr++);
+            result |= (cur & 0x7f) << 14;
+            if (cur <= 0x7f) {
+                result = (result << 11) >> 11;
+            } else {
+                cur = *(ptr++);
+                result |= (cur & 0x7f) << 21;
+                if (cur <= 0x7f) {
+                    result = (result << 4) >> 4;
+                } else {
+                    /*
+                     * Note: We don't check to see if cur is out of
+                     * range here, meaning we tolerate garbage in the
+                     * high four-order bits.
+                     */
+                    cur = *(ptr++);
+                    result |= cur << 28;
+                }
+            }
+        }
+    }
+
+    *pStream = ptr;
+    return result;
+}
+
 
 #endif //VM_ANDROIDSOURCE_H
