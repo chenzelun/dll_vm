@@ -206,6 +206,7 @@ struct VM_REFLECT {
     DEFINE_CLASS_NAME_SIGN(InternalError, "java/lang/InternalError");
     DEFINE_CLASS_NAME_SIGN(ArrayIndexOutOfBoundsException,
                            "java/lang/ArrayIndexOutOfBoundsException");
+    DEFINE_CLASS_NAME_SIGN(ArithmeticException, "java/lang/ArithmeticException");
 
 };
 

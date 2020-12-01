@@ -131,8 +131,8 @@ class Log:
         file_handle.setLevel(logging.DEBUG)
         file_handle.setFormatter(
             logging.Formatter(
-                fmt=r'%(asctime)s - %(levelname)s - %(pathname)s - pid: %(process)d, tid: %(thread)d\n'
-                    r'%(funcName)s[%(lineno)d]: %(message)s'))
+                fmt=r'%(asctime)s - %(levelname)s - %(pathname)s - pid: %(process)d, tid: %(thread)d'
+                    + '\n' + r'%(funcName)s[%(lineno)d]: %(message)s'))
 
         console_handle = logging.StreamHandler()
         console_handle.setLevel(logging.DEBUG)

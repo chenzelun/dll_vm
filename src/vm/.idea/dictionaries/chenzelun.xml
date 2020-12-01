@@ -19,6 +19,7 @@
       <w>ldalvik</w>
       <w>ljava</w>
       <w>odex</w>
+      <w>sfield</w>
       <w>sget</w>
       <w>sput</w>
       <w>ubyte</w>

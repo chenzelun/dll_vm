@@ -30,7 +30,7 @@ protected:
     std::map<uint32_t, CodeHandler *> codeMap;
 
 public:
-    virtual bool run(VmMethodContext *vmc) = 0;
+    virtual void run(VmMethodContext *vmc) = 0;
 };
 
 class StandardInterpret : public Interpret {
@@ -38,7 +38,7 @@ class StandardInterpret : public Interpret {
 public:
     StandardInterpret();
 
-    bool run(VmMethodContext *vmc);
+    void run(VmMethodContext *vmc);
 };
 // Standard Interpret's code handler
 
@@ -385,6 +385,11 @@ public:
 };
 
 class CH_Aput_Wide : public CodeHandler {
+public:
+    void run(VmMethodContext *vmc) override;
+};
+
+class CH_Aput_Object : public CodeHandler {
 public:
     void run(VmMethodContext *vmc) override;
 };
@@ -1029,7 +1034,7 @@ public:
     void run(VmMethodContext *vmc) override;
 };
 
-class CH_Sub_Int_Lit16 : public CodeHandler {
+class CH_RSub_Int_Lit16 : public CodeHandler {
 public:
     void run(VmMethodContext *vmc) override;
 };
@@ -1069,7 +1074,7 @@ public:
     void run(VmMethodContext *vmc) override;
 };
 
-class CH_Sub_Int_Lit8 : public CodeHandler {
+class CH_RSub_Int_Lit8 : public CodeHandler {
 public:
     void run(VmMethodContext *vmc) override;
 };
@@ -1165,11 +1170,6 @@ public:
     void run(VmMethodContext *vmc) override;
 };
 
-class CH_Throw_Verification_Error : public CodeHandler {
-public:
-    void run(VmMethodContext *vmc) override;
-};
-
 class CH_Iput_Object_Volatile : public CodeHandler {
 public:
     void run(VmMethodContext *vmc) override;
@@ -1196,7 +1196,7 @@ class JAVAException {
 public:
     static void throwJavaException(VmMethodContext *vmc);
 
-    static void handleJavaException(VmMethodContext *vmc);
+    static bool handleJavaException(VmMethodContext *vmc);
 
     static bool checkForNull(jobject obj);
 
@@ -1211,6 +1211,8 @@ public:
     static void throwInternalError(const char *msg);
 
     static void throwArrayIndexOutOfBoundsException(u4 length, u4 index);
+
+    static void throwArithmeticException(const char *msg);
 
 private:
     static void throwNew(const char *exceptionClassName, const char *msg);
@@ -1228,7 +1230,7 @@ public:
 
     Vm();
 
-    void run(VmMethodContext *vmc);
+    void run(VmMethodContext *vmc) const;
 
     jclass findPrimitiveClass(const char type) const;
 

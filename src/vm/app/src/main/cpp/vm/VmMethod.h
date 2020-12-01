@@ -223,6 +223,10 @@ public:
         return this->reg[off].i;
     }
 
+    inline void setRegisterInt(uint32_t off, jint val) {
+        this->reg[off].i = val;
+    }
+
     inline u8 getRegisterWide(uint32_t off) {
         return this->reg[off].u8;
     }
@@ -243,8 +247,24 @@ public:
         return this->reg[off].f;
     }
 
+    inline void setRegisterFloat(uint32_t off, jfloat val) {
+        this->reg[off].f = val;
+    }
+
     inline jfloat getRegisterDouble(uint32_t off) {
         return this->reg[off].f;
+    }
+
+    inline void setRegisterDouble(uint32_t off, jdouble val) {
+        this->reg[off].d = val;
+    }
+
+    inline jlong getRegisterLong(uint32_t off) {
+        return this->reg[off].j;
+    }
+
+    inline void setRegisterLong(uint32_t off, jlong val) {
+        this->reg[off].j = val;
     }
 };
 
