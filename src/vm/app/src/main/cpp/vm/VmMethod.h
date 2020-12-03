@@ -8,7 +8,7 @@
 
 #include <jni.h>
 #include "../common/Util.h"
-#include "../common/AndroidSource.h"
+#include "../common/AndroidSystem.h"
 
 class DexFile {
 public:
@@ -84,6 +84,22 @@ public:
     static bool isStaticMethod(const u4 accessFlags) {
         return (accessFlags & ACC_STATIC) != 0;
     }
+
+    inline const char *dexGetMethodShorty(u4 idx) {
+        assert(idx < this->pHeader->methodIdsSize);
+        return this->dexStringById(
+                this->dexGetProtoId(
+                        this->dexGetMethodId(idx)->protoIdx)->shortyIdx);
+    }
+
+    /*
+     * Get the parameter list from a ProtoId. The returns NULL if the ProtoId
+     * does not have a parameter list.
+     */
+    inline const DexTypeList *dexGetProtoParameters(u4 off) {
+        assert(off);
+        return (const DexTypeList *) (this->base + off);
+    }
 };
 
 union RegValue {
@@ -116,6 +132,7 @@ union RegValue {
     jshortArray lsa;
     jlongArray lja;
     jthrowable lt;
+    jmethodID lm;
 };
 
 class VmMethod {
@@ -127,6 +144,7 @@ public:
     const DexProtoId *protoId;
     u4 accessFlags;
     CodeItemData *code;
+    u1* triesAndHandlersBuf;
 
 public:
     VmMethod(jmethodID jniMethod);
@@ -136,6 +154,10 @@ public:
     jstring resolveString(u4 idx) const;
 
     jclass resolveClass(u4 idx) const;
+
+    jmethodID resolveMethod(u4 idx, bool isStatic) const;
+
+    std::string resolveMethodSign(u4 idx) const;
 
     bool resolveField(u4 idx, jobject obj, RegValue *retVal) const;
 
@@ -166,6 +188,14 @@ private:
 public:
     VmMethodContext(jobject caller, const VmMethod *method, jvalue *pResult, va_list param);
 
+#ifdef VM_DEBUG
+
+    void printVmMethodContext() const;
+
+    void printMethodInsns() const;
+
+#endif
+
     inline void finish() {
         assert(!this->isFinished);
         this->isFinished = true;
@@ -181,7 +211,7 @@ public:
     }
 
     inline uint16_t fetch(uint16_t off) const {
-        return (this->method->code->insns[pc + off]) & 0xff;
+        return (this->method->code->insns[pc + off]);
     }
 
     inline uint16_t inst_A() const {

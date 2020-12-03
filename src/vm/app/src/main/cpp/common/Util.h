@@ -19,6 +19,10 @@
 #define LOG_E(...)
 #endif
 
+#define MIN(x, y) (((x) < (y)) ? (x) : (y))
+#define MAX(x, y) (((x) > (y)) ? (x) : (y))
+
+
 class Util {
 public:
     static std::string &getBaseFilesDir();

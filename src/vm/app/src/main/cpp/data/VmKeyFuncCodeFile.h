@@ -21,7 +21,7 @@ struct VKFC_Index {
 };
 
 struct VKFC_Code {
-    uint8_t code[0];
+    uint8_t code[1];
 };
 
 class VmKeyFuncCodeFile {

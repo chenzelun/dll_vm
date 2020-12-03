@@ -35,8 +35,8 @@ VmMethod::VmMethod(jmethodID jniMethod) {
 
 void VmMethod::updateCode() {
     this->code = (CodeItemData *) VM_CONTEXT::vmKFCFile->getCode(this->method_id);
-    this->code->triesAndHandlersBuf = (u1 *) (this->code->insns + this->code->insnsSize);
-    this->code->triesAndHandlersBuf += this->code->insnsSize & (uint32_t) 0x01 ? 0x02 : 0x00;
+    this->triesAndHandlersBuf = (u1 *) (this->code->insns + this->code->insnsSize);
+    this->triesAndHandlersBuf += this->code->insnsSize & 0x01u ? 0x02 : 0x00;
 }
 
 jstring VmMethod::resolveString(u4 idx) const {
@@ -46,15 +46,16 @@ jstring VmMethod::resolveString(u4 idx) const {
 }
 
 jclass VmMethod::resolveClass(u4 idx) const {
-    const char *clazzName = this->dexFile->dexStringByTypeIdx(idx);
+    std::string clazzName = this->dexFile->dexStringByTypeIdx(idx);
     jclass retClass;
     if (clazzName[0] != '\0' && clazzName[1] == '\0') {
         retClass = VM_CONTEXT::vm->findPrimitiveClass(clazzName[0]);
     } else {
-        retClass = (*VM_CONTEXT::env).FindClass(clazzName);
+        clazzName = clazzName.substr(1, clazzName.size() - 2);
+        retClass = (*VM_CONTEXT::env).FindClass(clazzName.data());
     }
-//    assert(retClass != nullptr);  // throw exception if retClass==nullptr
-    LOG_D("--- resolving class %s (idx=%u referrer=%s)", clazzName, idx, this->clazzDescriptor);
+    LOG_D("--- resolving class %s (idx=%u referrer=%s)",
+          clazzName.data(), idx, this->clazzDescriptor);
     return retClass;
 }
 
@@ -292,6 +293,41 @@ bool VmMethod::resolveSetField(u4 idx, jobject obj, const RegValue *val) const {
     return true;
 }
 
+jmethodID VmMethod::resolveMethod(u4 idx, bool isStatic) const {
+    const DexMethodId *dexMethodId = this->dexFile->dexGetMethodId(idx);
+    const char *resName = this->dexFile->dexStringById(dexMethodId->nameIdx);
+    LOG_D("--- resolving method=%s (idx=%u class=%s)", resName, idx,
+          this->dexFile->dexStringByTypeIdx(dexMethodId->classIdx));
+    std::string sign = this->resolveMethodSign(dexMethodId->protoIdx);
+    jclass resClass = this->resolveClass(dexMethodId->classIdx);
+    if (resClass == nullptr) {
+        return nullptr;
+    }
+    jmethodID ret;
+    if (isStatic) {
+        ret = (*VM_CONTEXT::env).GetStaticMethodID(resClass, resName, sign.data());
+    } else {
+        ret = (*VM_CONTEXT::env).GetMethodID(resClass, resName, sign.data());
+    }
+    return ret;
+}
+
+std::string VmMethod::resolveMethodSign(u4 idx) const {
+    const DexProtoId *dexProtoId = this->dexFile->dexGetProtoId(idx);
+    std::string ret = "(";
+    if (dexProtoId->parametersOff > 0) {
+        const DexTypeList *dexTypeList =
+                this->dexFile->dexGetProtoParameters(dexProtoId->parametersOff);
+        for (int i = 0; i < dexTypeList->size; ++i) {
+            ret += this->dexFile->dexStringByTypeIdx(dexTypeList->list[i].typeIdx);
+        }
+    }
+    ret += ")";
+    ret += this->dexFile->dexStringByTypeIdx(dexProtoId->returnTypeIdx);
+    LOG_D("--- resolving proto(%u) sign %s", idx, ret.data());
+    return ret;
+}
+
 VmMethodContext::VmMethodContext(jobject caller, const VmMethod *method,
                                  jvalue *pResult, va_list param) {
     this->method = method;
@@ -347,3 +383,28 @@ VmMethodContext::VmMethodContext(jobject caller, const VmMethod *method,
     }
 
 }
+
+#ifdef VM_DEBUG
+
+void VmMethodContext::printVmMethodContext() const {
+    LOG_D("current method: %s#%s", this->method->clazzDescriptor, this->method->name);
+    for (int i = 0; i < this->method->code->registersSize; ++i) {
+        LOG_D("reg[%d]: 0x%016lx", i, this->reg[i].u8);
+    }
+    LOG_D("caller: %p", this->caller);
+    LOG_D("src1: %u, src2: %u, dst: %u", this->src1, this->src2, this->dst);
+    LOG_D("retVal: %ld", this->retVal->j);
+    LOG_D("exception: %p", this->curException);
+    LOG_D("tmp1: 0x%016lx, tmp2: 0x%016lx", this->tmp1.u8, this->tmp2.u8);
+    LOG_D("pc: %u, cur insns: 0x%02x", this->pc_cur(), this->fetch_op());
+    LOG_D("isFinish: %s", this->isFinish() ? "true" : "false");
+}
+
+void VmMethodContext::printMethodInsns() const {
+    LOG_D("current method: %s#%s", this->method->clazzDescriptor, this->method->name);
+    for (int i = 0; i < this->method->code->insnsSize; ++i) {
+        LOG_D("insns[%2d]: 0x%04x", i, this->method->code->insns[i]);
+    }
+}
+
+#endif

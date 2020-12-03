@@ -89,7 +89,7 @@ class VmKeyFuncJniFile:
 
         # function body
         data += self.__add_line()
-        data += self.__add_line(r'LOG_D("jni function start: %s", __func__);')
+        data += self.__add_line(r'LOG_D("jni function start.");')
         if method.access_flags & dex_file.AccessFlag.ACC_STATIC:
             data += self.__add_line(r'jobject instance = clazz_obj;')
         else:
@@ -106,7 +106,7 @@ class VmKeyFuncJniFile:
         data += self.__add_line(r'jvalue retValue;')
         data += self.__add_line(r'Vm::callMethod(instance, method_id, &retValue'
                                 r'{param});'.format(param=param_call))
-        data += self.__add_line(r'LOG_D("jni function finish: %s", __func__);')
+        data += self.__add_line(r'LOG_D("jni function finish.");')
         ret_jvalue_type = VmKeyFuncJniFile.wrap_to_jvalue_type(self.dex.get_method_short(method.method_idx))
         if ret_jvalue_type:
             data += self.__add_line(r'return retValue.{jvalue_type};'.format(jvalue_type=ret_jvalue_type))

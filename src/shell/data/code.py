@@ -2,7 +2,7 @@ import hashlib
 import logging
 import zlib
 from abc import abstractmethod, ABCMeta
-from struct import pack
+from struct import pack, unpack
 from typing import List
 
 from shell.common.utils import Pointer, Debugger
@@ -87,6 +87,12 @@ class VmKeyFuncCodeFile:
         self.code.append(code)
         index = VKFC_Index(method.method_idx, code)
         self.index.append(index)
+
+        bin_insns = unpack('<' + str(method.code.insns_size) + 'H', code.code[0x10:])
+        self.log.debug("print key function's insns:")
+        for i in range(method.code.insns_size):
+            self.log.debug("insns[%2d]: 0x%04x", i, bin_insns[i])
+        self.log.debug("end key function's insns.")
 
     def to_bytes(self) -> bytes:
         buf = bytearray()

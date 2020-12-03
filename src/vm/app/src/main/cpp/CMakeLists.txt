@@ -26,13 +26,16 @@ add_library( # Sets the name of the library.
         KeyFuncJni.cpp
 
         common/Util.cpp
-        common/AndroidSource.cpp
+        common/AndroidSystem.cpp
 
         data/VmDataFile.cpp
         data/VmKeyFuncCodeFile.cpp
 
         vm/Vm.cpp
         vm/VmMethod.cpp
+        vm/JAVAException.cpp
+
+        Interpret/StandardInterpret.cpp
         )
 
 

@@ -14,8 +14,8 @@
   + [x] main vm code about setup system
   + [x] test repackaged App
   + [x] change java method to native method
-  + [ ] add vm interpreter
-  + [ ] test base vmp's App
+  + [x] add vm interpreter
+  + [x] test base vmp's App
   + [ ] randomized bytecode and update interpreter
   + [ ] relocate "relocate" and confusion
   + [ ] add code cache
@@ -33,6 +33,9 @@
   
 
 ## git log
+    [2020-12-03]:   1. TODO: add vm interpreter
+                    2. TODO: test base vmp's App
+                    3. only test sample opcode.
     [2020-11-23]:   1. TODO: change java method to native method
                     2. finish init VmMethodContext.
     [2020-11-15]:   1. TODO: test vm application name

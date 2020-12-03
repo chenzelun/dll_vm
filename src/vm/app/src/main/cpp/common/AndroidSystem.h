@@ -2,8 +2,8 @@
 // Created by 陈泽伦 on 11/16/20.
 //
 
-#ifndef VM_ANDROIDSOURCE_H
-#define VM_ANDROIDSOURCE_H
+#ifndef VM_ANDROIDSYSTEM_H
+#define VM_ANDROIDSYSTEM_H
 
 
 #include <cstdint>
@@ -158,7 +158,6 @@ struct CodeItemData {
     u4 debugInfoOff;
     u4 insnsSize;
     u2 insns[1];
-    u1 *triesAndHandlersBuf;
 };
 
 class ArtMethod_26_28 {
@@ -458,84 +457,19 @@ struct DexTry {
 };
 
 
-
 /*
 * Reads an unsigned LEB128 value, updating the given pointer to point
 * just past the end of the read value. This function tolerates
 * non-zero high-order bits in the fifth encoded byte.
 */
-uint32_t readUnsignedLeb128(const u1 **pStream) {
-    const u1 *ptr = *pStream;
-    uint32_t result = *(ptr++);
-
-    if (result > 0x7f) {
-        int cur = *(ptr++);
-        result = (result & 0x7f) | ((cur & 0x7f) << 7);
-        if (cur > 0x7f) {
-            cur = *(ptr++);
-            result |= (cur & 0x7f) << 14;
-            if (cur > 0x7f) {
-                cur = *(ptr++);
-                result |= (cur & 0x7f) << 21;
-                if (cur > 0x7f) {
-                    /*
-                     * Note: We don't check to see if cur is out of
-                     * range here, meaning we tolerate garbage in the
-                     * high four-order bits.
-                     */
-                    cur = *(ptr++);
-                    result |= cur << 28;
-                }
-            }
-        }
-    }
-
-    *pStream = ptr;
-    return result;
-}
+uint32_t readUnsignedLeb128(const u1 **pStream);
 
 /*
  * Reads a signed LEB128 value, updating the given pointer to point
  * just past the end of the read value. This function tolerates
  * non-zero high-order bits in the fifth encoded byte.
  */
-int readSignedLeb128(const u1 **pStream) {
-    const u1 *ptr = *pStream;
-    int result = *(ptr++);
-
-    if (result <= 0x7f) {
-        result = (result << 25) >> 25;
-    } else {
-        int cur = *(ptr++);
-        result = (result & 0x7f) | ((cur & 0x7f) << 7);
-        if (cur <= 0x7f) {
-            result = (result << 18) >> 18;
-        } else {
-            cur = *(ptr++);
-            result |= (cur & 0x7f) << 14;
-            if (cur <= 0x7f) {
-                result = (result << 11) >> 11;
-            } else {
-                cur = *(ptr++);
-                result |= (cur & 0x7f) << 21;
-                if (cur <= 0x7f) {
-                    result = (result << 4) >> 4;
-                } else {
-                    /*
-                     * Note: We don't check to see if cur is out of
-                     * range here, meaning we tolerate garbage in the
-                     * high four-order bits.
-                     */
-                    cur = *(ptr++);
-                    result |= cur << 28;
-                }
-            }
-        }
-    }
-
-    *pStream = ptr;
-    return result;
-}
+int readSignedLeb128(const u1 **pStream);
 
 
-#endif //VM_ANDROIDSOURCE_H
+#endif //VM_ANDROIDSYSTEM_H

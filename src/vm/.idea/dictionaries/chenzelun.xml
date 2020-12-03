@@ -4,15 +4,18 @@
       <w>addr</w>
       <w>aget</w>
       <w>androidsource</w>
+      <w>androidsystem</w>
       <w>aput</w>
       <w>dalunlun</w>
       <w>defs</w>
+      <w>deps</w>
       <w>descr</w>
       <w>ident</w>
       <w>iget</w>
       <w>insn</w>
       <w>insns</w>
       <w>iput</w>
+      <w>javaexception</w>
       <w>jclass</w>
       <w>keyfuncjni</w>
       <w>landroid</w>
@@ -24,6 +27,7 @@
       <w>sfield</w>
       <w>sget</w>
       <w>sput</w>
+      <w>standardinterpret</w>
       <w>ubyte</w>
       <w>uint</w>
       <w>uleb</w>
@@ -32,6 +36,7 @@
       <w>vdst</w>
       <w>vmconstant</w>
       <w>vmcontext</w>
+      <w>vmkeyfunccodefile</w>
       <w>vmmethod</w>
       <w>vsrc</w>
     </words>

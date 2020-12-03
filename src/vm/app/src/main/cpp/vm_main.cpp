@@ -1,5 +1,6 @@
 #include "common/Util.h"
 #include "VmContext.h"
+#include "Interpret/StandardInterpret.h"
 
 #include <jni.h>
 #include <cassert>
@@ -24,13 +25,17 @@ jint JNI_OnLoad(JavaVM *vm, void *unused) {
 
     Util::buildFileSystem();
 
-    // init VM_CONTEXT
+    // init VM_CONTEXT start
     VM_CONTEXT::initVmDataFileOfVC();
     VM_CONTEXT::initVmKeyFuncCodeFileOfVC(); // may be sub process.
+
     VM_CONTEXT::initVm();
+    VM_CONTEXT::vm->setInterpret(new StandardInterpret());
+    // init VM_CONTEXT end
+
 
     VM_CONTEXT::loadDexFromMemory();
     VM_CONTEXT::changeTopApplication();
-
+    LOG_D("VM init success.");
     return JNI_VERSION_1_4;
 }
