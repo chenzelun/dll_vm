@@ -332,6 +332,7 @@ VmMethodContext::VmMethodContext(jobject caller, const VmMethod *method,
                                  jvalue *pResult, va_list param) {
     this->method = method;
     this->caller = caller;
+    assert(this->caller != nullptr);
     this->retVal = pResult;
     this->reg = (RegValue *) malloc(sizeof(RegValue) * (method->code->registersSize));
     this->pc = 0;

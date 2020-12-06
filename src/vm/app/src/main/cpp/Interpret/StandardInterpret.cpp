@@ -1164,22 +1164,21 @@ void ST_CH_Check_Cast::run(VmMethodContext *vmc) {
 void ST_CH_Instance_Of::run(VmMethodContext *vmc) {
     vmc->dst = vmc->inst_A();
     vmc->src1 = vmc->inst_B();
-    vmc->tmp1.u4 = vmc->fetch(1);
+    vmc->tmp2.u4 = vmc->fetch(1);
     LOG_D("|instance-of v%u,v%u,class@%u",
-          vmc->dst, vmc->src1, vmc->tmp1.u4);
+          vmc->dst, vmc->src1, vmc->tmp2.u4);
     vmc->tmp1.l = vmc->getRegisterAsObject(vmc->src1);
-    vmc->tmp2.lc = nullptr;
     if (vmc->tmp1.l == nullptr) {
         vmc->setRegister(vmc->dst, 0);
     } else {
-        vmc->tmp2.lc = vmc->method->resolveClass(vmc->fetch(1));
+        vmc->tmp2.lc = vmc->method->resolveClass(vmc->tmp2.u4);
         if (vmc->tmp2.lc == nullptr) {
             JAVAException::throwJavaException(vmc);
             return;
         }
+        vmc->tmp1.z = (*VM_CONTEXT::env).IsInstanceOf(vmc->tmp1.l, vmc->tmp2.lc);
+        vmc->setRegister(vmc->dst, vmc->tmp1.z);
     }
-    vmc->tmp1.z = (*VM_CONTEXT::env).IsInstanceOf(vmc->tmp1.l, vmc->tmp2.lc);
-    vmc->setRegister(vmc->dst, vmc->tmp1.z);
 //    (*VM_CONTEXT::env).DeleteLocalRef(clazz);
     vmc->pc_off(2);
 }

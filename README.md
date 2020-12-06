@@ -18,7 +18,7 @@
   + [x] test base vmp's App
   + [ ] randomized bytecode and update interpreter
   + [ ] relocate "relocate" and confusion
-  + [ ] add code cache
+  + [x] add code cache(used map:{k: method id, v: CodeItem})
   + [ ] hide stack
   + [ ] stack in random address
   + [ ] cancel JNI call

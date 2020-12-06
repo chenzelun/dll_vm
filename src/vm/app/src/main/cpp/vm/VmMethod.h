@@ -144,7 +144,7 @@ public:
     const DexProtoId *protoId;
     u4 accessFlags;
     CodeItemData *code;
-    u1* triesAndHandlersBuf;
+    u1 *triesAndHandlersBuf;
 
 public:
     VmMethod(jmethodID jniMethod);
