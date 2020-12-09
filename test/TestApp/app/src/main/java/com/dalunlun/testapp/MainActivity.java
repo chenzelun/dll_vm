@@ -23,6 +23,7 @@ public class MainActivity extends AppCompatActivity {
         // Example of a call to a native method
         TextView tv = findViewById(R.id.sample_text);
         tv.setText(stringFromJNI());
+        this.test();
     }
 
     /**
@@ -31,7 +32,24 @@ public class MainActivity extends AppCompatActivity {
      */
     public native String stringFromJNI();
 
-    public void test(String a, String b) {
-        System.out.println(a + b);
+    public void test() {
+        long ret = 0;
+        int count = 10;
+        for (int i = 0; i < count; i++) {
+            ret = this.sum(ret, i);
+        }
+        System.out.println("ret_1: " + ret);
+        System.out.println("ret_2: " + this.sumTo(count - 1));
+    }
+
+    private long sum(long a, long b) {
+        return a + b;
+    }
+
+    long sumTo(long a) {
+        if (a == 1) {
+            return 1;
+        }
+        return a + this.sumTo(a - 1);
     }
 }

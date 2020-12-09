@@ -179,19 +179,6 @@ public:
 
     // Index into method_ids of the dex file associated with this method.
     uint32_t dex_method_index;
-
-    /* End of dex file fields. */
-
-    // Entry within a dispatch table for this method. For static/direct methods the index is into
-    // the declaringClass.directMethods, for virtual methods the vtable and for interface methods the
-    // ifTable.
-    uint16_t method_index;
-
-    // The hotness we measure for this method. Managed by the interpreter. Not atomic, as we allow
-    // missing increments: if the method is hot, we will see it eventually.
-    uint16_t hotness_count;
-
-    // Fake padding field gets inserted here.
 };
 
 #define PACKED(x) __attribute__ ((__aligned__(x), __packed__))
@@ -202,7 +189,7 @@ class PACKED(sizeof(T)) Atomic : public std::atomic<T> {
 
 };
 
-class ArtDexFile {
+class ArtDexFile_28 {
 public:
     const void *virtualMethod;
 
@@ -212,6 +199,12 @@ public:
     // The size of the underlying memory allocation in bytes.
     const size_t size;
 
+    // The base address of the data section (same as Begin() for standard dex).
+    const uint8_t *const data_begin;
+
+    // The size of the data section.
+    const size_t data_size;
+
     // Typically the dex file name when available, alternatively some identifying string.
     //
     // The ClassLinker will use this to match DexFiles the boot class
@@ -220,29 +213,26 @@ public:
 
     const uint32_t location_checksum;
 
-    // Manages the underlying memory allocation.
-    void *mem_map;
-
     // Points to the header section.
-    const void *const header;
+    const DexHeader *const header;
 
     // Points to the base of the string identifier list.
-    const void *const string_ids;
+    const DexStringId *const string_ids;
 
     // Points to the base of the type identifier list.
-    const void *const type_ids;
+    const DexTypeId *const type_ids;
 
     // Points to the base of the field identifier list.
-    const void *const field_ids;
+    const DexFieldId *const field_ids;
 
     // Points to the base of the method identifier list.
-    const void *const method_ids;
+    const DexMethodId *const method_ids;
 
     // Points to the base of the prototype identifier list.
-    const void *const proto_ids;
+    const DexProtoId *const proto_ids;
 
     // Points to the base of the class definition list.
-    const void *const class_defs;
+    const DexClassDef *const class_defs;
 
     // Number of misses finding a class def from a descriptor.
     mutable Atomic<uint32_t> find_class_def_misses;
@@ -272,7 +262,7 @@ public:
     // Defining class loader, or null for the "bootstrap" system loader.
     uint32_t class_loader;
 
-    // For array classes, the component class object for instanceof/checkcast
+    // For array classes, the component class object for instance of/check cast
     // (for String[][][], this will be String[][]). null for non-array classes.
     uint32_t component_type;
 

@@ -20,7 +20,7 @@
   + [ ] relocate "relocate" and confusion
   + [x] add code cache(used map:{k: method id, v: CodeItem})
   + [ ] hide stack
-  + [ ] stack in random address
+  + [x] stack in random address
   + [ ] cancel JNI call
   + [ ] delete debug info in dex file
   + [ ] test App's profile
@@ -33,6 +33,11 @@
   
 
 ## git log
+    [2020-12-09]:   1. TODO: stack in random address
+                    2. have some bugs, eg: logcat is different every time
+                        and may be too much log
+    [2020-12-06]:   1. TODO: add code cache
+                    2. fixed ip some bugs about vmc::tmp.
     [2020-12-03]:   1. TODO: add vm interpreter
                     2. TODO: test base vmp's App
                     3. only test sample opcode.

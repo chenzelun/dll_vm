@@ -8,6 +8,7 @@
       <excludeFolder url="file://$MODULE_DIR$/src/vm" />
       <excludeFolder url="file://$MODULE_DIR$/test" />
       <excludeFolder url="file://$MODULE_DIR$/tmp" />
+      <excludeFolder url="file://$MODULE_DIR$/build" />
     </content>
     <orderEntry type="jdk" jdkName="Python 3.8 (dll_vm)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />

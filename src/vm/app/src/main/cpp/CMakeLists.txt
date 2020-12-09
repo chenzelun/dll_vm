@@ -34,8 +34,10 @@ add_library( # Sets the name of the library.
         vm/Vm.cpp
         vm/VmMethod.cpp
         vm/JAVAException.cpp
+        vm/VmStack.cpp
+        vm/VmMemory.cpp
 
-        Interpret/StandardInterpret.cpp
+        vm/interpret/StandardInterpret.cpp
         )
 
 
@@ -56,7 +58,6 @@ set_target_properties(
         PROPERTIES IMPORTED_LOCATION
 
         ${CMAKE_SOURCE_DIR}/../thirdLibs/${CMAKE_ANDROID_ARCH_ABI}/libAK.so)
-
 
 
 # Searches for a specified prebuilt library and stores the path as a

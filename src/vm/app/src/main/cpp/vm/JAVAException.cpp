@@ -22,7 +22,7 @@ bool JAVAException::handleJavaException(VmMethodContext *vmc) {
      * frame.
      *
      * A break frame could indicate that we have reached an intermediate
-     * native call, or have gone off the top of the stack and the thread
+     * native call, or have gone off the topFrame of the stack and the thread
      * needs to exit.  Either way, we return from here, leaving the
      * exception raised.
      *

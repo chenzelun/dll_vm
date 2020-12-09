@@ -12,10 +12,12 @@
 #define VM_DEBUG
 
 #ifdef VM_DEBUG
-#define LOG_D(...) __android_log_print(ANDROID_LOG_DEBUG,__FUNCTION__,__VA_ARGS__) // 定义LOGD类型
-#define LOG_E(...) __android_log_print(ANDROID_LOG_ERROR,__FUNCTION__,__VA_ARGS__) // 定义LOGE类型
+#define LOG_D(...) __android_log_print(ANDROID_LOG_DEBUG,__FUNCTION__,__VA_ARGS__) // 定义LOG_D类型
+#define LOG_W(...) __android_log_print(ANDROID_LOG_WARN ,__FUNCTION__,__VA_ARGS__) // 定义LOG_W类型
+#define LOG_E(...) __android_log_print(ANDROID_LOG_ERROR,__FUNCTION__,__VA_ARGS__) // 定义LOG_E类型
 #else
 #define LOG_D(...)
+#define LOG_W(...)
 #define LOG_E(...)
 #endif
 

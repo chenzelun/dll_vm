@@ -9,6 +9,7 @@
 #include <jni.h>
 #include "../common/Util.h"
 #include "../common/AndroidSystem.h"
+#include "VmCommon.h"
 
 class DexFile {
 public:
@@ -102,39 +103,6 @@ public:
     }
 };
 
-union RegValue {
-    jboolean z;
-    jbyte b;
-    jchar c;
-    jshort s;
-    jint i;
-    jlong j;
-    jfloat f;
-    jdouble d;
-    jobject l;
-    uint64_t u8;
-    uint32_t u4;
-    uint16_t u2;
-    uint8_t u1;
-    int64_t s8;
-    int32_t s4;
-    int16_t s2;
-    int8_t s1;
-    jarray la;
-    jclass lc;
-    jobjectArray lla;
-    jintArray lia;
-    jcharArray lca;
-    jbooleanArray lza;
-    jbyteArray lba;
-    jfloatArray lfa;
-    jdoubleArray lda;
-    jshortArray lsa;
-    jlongArray lja;
-    jthrowable lt;
-    jmethodID lm;
-};
-
 class VmMethod {
 public:
     uint32_t method_id;
@@ -147,9 +115,7 @@ public:
     u1 *triesAndHandlersBuf;
 
 public:
-    VmMethod(jmethodID jniMethod);
-
-    void updateCode();
+    VmMethod(jmethodID jniMethod, bool isUpdateCode = true);
 
     jstring resolveString(u4 idx) const;
 
@@ -174,19 +140,17 @@ class VmMethodContext {
 public:
     const VmMethod *method;
     RegValue *reg;
-    jobject caller;
+    VmTempData *tmp;
 
-    uint16_t src1 = 0, src2 = 0, dst = 0;
     jvalue *retVal;
     jthrowable curException = nullptr;
-    RegValue tmp1{}, tmp2{};
 
 private:
     uint16_t pc;
     bool isFinished = false;
 
 public:
-    VmMethodContext(jobject caller, const VmMethod *method, jvalue *pResult, va_list param);
+    void reset(jobject caller, const VmMethod *vmMethod, jvalue *pResult, va_list param);
 
 #ifdef VM_DEBUG
 

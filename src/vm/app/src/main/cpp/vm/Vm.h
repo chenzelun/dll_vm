@@ -8,26 +8,29 @@
 #include <jni.h>
 #include <string>
 #include "VmMethod.h"
-#include "../Interpret/Interpret.h"
-
-class VMException : public std::runtime_error {
-public:
-    VMException(const char *exp) : runtime_error(std::string("VMException: ") + exp) {}
-
-    VMException(const std::string &exp) : runtime_error(std::string("VMException: ") + exp) {}
-};
+#include "interpret/Interpret.h"
+#include "VmStack.h"
+#include "VmMemory.h"
 
 #define  PRIMITIVE_TYPE_SIZE 8
 
 class Vm {
 private:
     Interpret *interpret;
+    VmStack *stackManager;
+    VmMemory *vmMemory;
+public:
+    VmMemory *getVmMemory() const;
 
 public:
+    VmStack *getStackManager() const;
+
     static void
     callMethod(jobject instance, jmethodID method, jvalue *pResult, ...);
 
     Vm();
+
+    ~Vm();
 
     void setInterpret(Interpret *pInterpret);
 

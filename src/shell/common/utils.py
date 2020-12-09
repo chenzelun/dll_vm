@@ -122,9 +122,14 @@ class Apk:
 
 
 class Log:
+    has_init = False
+
     # config log
-    @staticmethod
-    def init_logging():
+    @classmethod
+    def init_logging(cls):
+        if cls.has_init:
+            return
+
         log_file_path = os.path.join(env.LOG_ROOT, 'log.log')
 
         file_handle = logging.FileHandler(log_file_path, mode='w')
@@ -143,6 +148,7 @@ class Log:
         logger.setLevel(logging.DEBUG)
         logger.addHandler(file_handle)
         logger.addHandler(console_handle)
+        cls.has_init = True
 
     @staticmethod
     def log_function(func):

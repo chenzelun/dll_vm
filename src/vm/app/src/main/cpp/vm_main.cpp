@@ -1,6 +1,6 @@
 #include "common/Util.h"
 #include "VmContext.h"
-#include "Interpret/StandardInterpret.h"
+#include "vm/interpret/StandardInterpret.h"
 
 #include <jni.h>
 #include <cassert>

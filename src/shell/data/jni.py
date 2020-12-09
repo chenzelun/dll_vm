@@ -138,7 +138,10 @@ class VmKeyFuncJniFile:
 
         data = self.__add_line(r'extern "C"')
         data += self.__add_line(r'JNIEXPORT {rt_type} JNICALL'.format(rt_type=return_type))
-        data += self.__add_line(r'Java_{c_name}_{m_name}__{sign}('.format_map(jni_func_name_map))
+        if param_sign:
+            data += self.__add_line(r'Java_{c_name}_{m_name}__{sign}('.format_map(jni_func_name_map))
+        else:
+            data += self.__add_line(r'Java_{c_name}_{m_name}('.format_map(jni_func_name_map))
         data += self.__add_line(r'        JNIEnv *env, {o_or_c}{param_list})'.format_map(jni_func_param_map), '')
         return data
 

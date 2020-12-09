@@ -6,26 +6,35 @@
       <w>androidsource</w>
       <w>androidsystem</w>
       <w>aput</w>
+      <w>cdex</w>
+      <w>clinit</w>
       <w>codecache</w>
       <w>dalunlun</w>
       <w>defs</w>
       <w>deps</w>
       <w>descr</w>
       <w>ident</w>
+      <w>ifields</w>
+      <w>iftable</w>
       <w>iget</w>
       <w>insn</w>
       <w>insns</w>
+      <w>instanceof</w>
       <w>iput</w>
       <w>javaexception</w>
       <w>jclass</w>
       <w>keyfuncjni</w>
+      <w>klass</w>
       <w>landroid</w>
       <w>lcom</w>
       <w>ldalvik</w>
       <w>ljava</w>
+      <w>mmap</w>
+      <w>munmap</w>
       <w>odex</w>
       <w>rsub</w>
       <w>sfield</w>
+      <w>sfields</w>
       <w>sget</w>
       <w>sput</w>
       <w>standardinterpret</w>
@@ -34,12 +43,20 @@
       <w>uleb</w>
       <w>ushort</w>
       <w>ushr</w>
+      <w>vdex</w>
       <w>vdst</w>
+      <w>vmcache</w>
+      <w>vmcommon</w>
       <w>vmconstant</w>
       <w>vmcontext</w>
+      <w>vmdatafile</w>
       <w>vmkeyfunccodefile</w>
+      <w>vmmemory</w>
       <w>vmmethod</w>
+      <w>vmstack</w>
+      <w>vmstackmanager</w>
       <w>vsrc</w>
+      <w>vtable</w>
     </words>
   </dictionary>
 </component>

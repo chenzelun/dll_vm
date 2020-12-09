@@ -6,27 +6,45 @@
 #include "../common/Util.h"
 #include "../common/VmConstant.h"
 #include "../VmContext.h"
-#include "../Interpret/StandardInterpret.h"
+#include "interpret/StandardInterpret.h"
 #include "JAVAException.h"
 #include <cmath>
 
 void Vm::callMethod(jobject instance, jmethodID method, jvalue *pResult, ...) {
     // init vm method from dex file.
-    VmMethod vmMethod(method);
-    vmMethod.updateCode();
+    VmMethod vmMethod(method, true);
+    LOG_D("");
+    LOG_D("********************************** "
+          "enter vm: %s"
+          " **********************************", vmMethod.name);
     va_list args;
     va_start(args, pResult);
     // init vm method context
-    VmMethodContext vmc(instance, &vmMethod, pResult, args);
+    VmMethodContext *vmc = VM_CONTEXT::vm->getStackManager()->push(
+            instance, &vmMethod, pResult, args);
     va_end(args);
     // do it
-    VM_CONTEXT::vm->run(&vmc);
+    VM_CONTEXT::vm->run(vmc);
+    VM_CONTEXT::vm->getStackManager()->pop();
+    LOG_D("********************************** "
+          "exit  vm: %s"
+          " **********************************", vmMethod.name);
+    LOG_D("");
 }
 
 Vm::Vm() {
-    // TODO: change Interpret.
+    LOG_D("VmMethodContext size of: %lu", sizeof(VmMethodContext));
+    this->vmMemory = new VmMemory(VM_CONFIG::VM_MEMORY_SIZE);
+    // TODO: change vm.Interpret.
     this->interpret = nullptr;
+    this->stackManager = new VmStack(VM_CONFIG::VM_STACK_FREE_PAGE_SIZE, this->vmMemory);
     this->initPrimitiveClass();
+}
+
+Vm::~Vm() {
+    delete this->interpret;
+    delete this->stackManager;
+    delete this->vmMemory;
 }
 
 void Vm::setInterpret(Interpret *pInterpret) {
@@ -38,6 +56,11 @@ void Vm::run(VmMethodContext *vmc) const {
     vmc->printMethodInsns();
 #endif
 
+    if (this->interpret == nullptr) {
+        LOG_D("vm::interpret == nullptr");
+        throw VMException("vm::interpret == nullptr");
+    }
+
     while (!vmc->isFinish()) {
         if (vmc->curException != nullptr && !JAVAException::handleJavaException(vmc)) {
             LOG_D("threw exception.");
@@ -46,7 +69,6 @@ void Vm::run(VmMethodContext *vmc) const {
         }
         this->interpret->run(vmc);
     }
-    LOG_D("exit vm success.");
 }
 
 jclass Vm::findPrimitiveClass(const char type) const {
@@ -82,4 +104,12 @@ void Vm::initPrimitiveClass() {
     }
 //    (*env).DeleteLocalRef(cClass);
     LOG_D("init primitiveClass end");
+}
+
+VmStack *Vm::getStackManager() const {
+    return stackManager;
+}
+
+VmMemory *Vm::getVmMemory() const {
+    return vmMemory;
 }

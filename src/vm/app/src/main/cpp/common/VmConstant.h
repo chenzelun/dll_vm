@@ -18,6 +18,13 @@ struct VM_CONFIG {
     RD_STR RUNTIME_ODEX_PATH = "/odex";
     RD_STR RUNTIME_DEX_PATH = "/dex";
     RD_STR RUNTIME_DATA_PATH = "/data";
+
+    // vm
+    static const uint64_t VM_MEMORY_SIZE = 64UL << 20U;
+    static const uint32_t VM_MEMORY_FREE_PAGE_SIZE = 8u;
+
+
+    static const uint32_t VM_STACK_FREE_PAGE_SIZE = 8u;
 };
 
 #define DEFINE_NAME_SIGN(VAR_NAME, NAME, SIGN)                                  \

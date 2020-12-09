@@ -128,10 +128,9 @@ class Shell:
 
     @Log.log_function
     def rebuild_and_unzip(self, app_root: str, dest_path: str):
-        if dest_path != self.test_path:
-            if not Apk.build(app_root):
-                self.log.error(r'errors about building app: ' + app_root)
-                sys.exit()
+        if not Apk.build(app_root):
+            self.log.error(r'errors about building app: ' + app_root)
+            sys.exit()
 
         apk_path = os.path.join(app_root, r'app',
                                 r'build', r'outputs', r'apk',
