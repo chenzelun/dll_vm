@@ -1443,7 +1443,7 @@ class CodeItem(Writeable):
             buf_end = pr.cur
             self.try_buf = buf[buf_start:buf_end]
 
-        if self.debug_info_off:
+        if self.debug_info_off and not env.DELETE_DEBUG_INFO_FROM_DEX:
             self.debug_info = MapList.get_item_and_add(
                 MapListItemType.TYPE_DEBUG_INFO_ITEM,
                 self.debug_info_off, DebugInfoItem, buf
@@ -1915,8 +1915,12 @@ class DexFile:
 
         self.pool_to_bytes_if_exist(MapListItemType.TYPE_ENCODED_ARRAY_ITEM, data_buf, data_pr)
         self.log.debug(r'write encoded array')
-        self.pool_to_bytes_if_exist(MapListItemType.TYPE_DEBUG_INFO_ITEM, data_buf, data_pr)
-        self.log.debug(r'write debug info')
+        if env.DELETE_DEBUG_INFO_FROM_DEX:
+            self.map_list.map.pop(MapListItemType.TYPE_DEBUG_INFO_ITEM,
+                                  "don't find key: " + str(MapListItemType.TYPE_DEBUG_INFO_ITEM.value))
+        else:
+            self.pool_to_bytes_if_exist(MapListItemType.TYPE_DEBUG_INFO_ITEM, data_buf, data_pr)
+            self.log.debug(r'write debug info')
         self.pool_to_bytes_if_exist(MapListItemType.TYPE_CODE_ITEM, data_buf, data_pr)
         self.log.debug(r'write code')
         self.pool_to_bytes_if_exist(MapListItemType.TYPE_CLASS_DATA_ITEM, data_buf, data_pr)

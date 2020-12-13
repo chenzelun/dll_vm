@@ -32,6 +32,8 @@ RES_KEY_FUNCTIONS_DEFINED_PATH = os.path.join(
 ADB_TOOL_PATH = os.path.join(r'/Users/chenzelun/Library',
                              r'Android', r'sdk', r'platform-tools', r'adb')
 
+DELETE_DEBUG_INFO_FROM_DEX = False
+
 
 # init evn
 def init_env():

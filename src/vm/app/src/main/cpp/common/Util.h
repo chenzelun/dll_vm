@@ -9,16 +9,43 @@
 #include <android/log.h>
 #include <string>
 
+//#define VM_NEW_CODE
 #define VM_DEBUG
+//#define VM_INFO
 
-#ifdef VM_DEBUG
-#define LOG_D(...) __android_log_print(ANDROID_LOG_DEBUG,__FUNCTION__,__VA_ARGS__) // 定义LOG_D类型
-#define LOG_W(...) __android_log_print(ANDROID_LOG_WARN ,__FUNCTION__,__VA_ARGS__) // 定义LOG_W类型
-#define LOG_E(...) __android_log_print(ANDROID_LOG_ERROR,__FUNCTION__,__VA_ARGS__) // 定义LOG_E类型
-#else
+#if defined(VM_NEW_CODE)
+
+#define LOG_D_NEW(...) __android_log_print(ANDROID_LOG_DEBUG,__FUNCTION__,__VA_ARGS__)
+#define LOG_I_NEW(...) __android_log_print(ANDROID_LOG_INFO ,__FUNCTION__,__VA_ARGS__)
+#define LOG_W_NEW(...) __android_log_print(ANDROID_LOG_WARN ,__FUNCTION__,__VA_ARGS__)
+#define LOG_E_NEW(...) __android_log_print(ANDROID_LOG_ERROR,__FUNCTION__,__VA_ARGS__)
+
+#define LOG_D(...) __android_log_print(ANDROID_LOG_DEBUG,__FUNCTION__,__VA_ARGS__)
+#define LOG_I(...) __android_log_print(ANDROID_LOG_INFO ,__FUNCTION__,__VA_ARGS__)
+#define LOG_W(...) __android_log_print(ANDROID_LOG_WARN ,__FUNCTION__,__VA_ARGS__)
+#define LOG_E(...) __android_log_print(ANDROID_LOG_ERROR,__FUNCTION__,__VA_ARGS__)
+
+#elif defined(VM_DEBUG)
+
+#define LOG_D(...) __android_log_print(ANDROID_LOG_DEBUG,__FUNCTION__,__VA_ARGS__)
+#define LOG_I(...) __android_log_print(ANDROID_LOG_INFO ,__FUNCTION__,__VA_ARGS__)
+#define LOG_W(...) __android_log_print(ANDROID_LOG_WARN ,__FUNCTION__,__VA_ARGS__)
+#define LOG_E(...) __android_log_print(ANDROID_LOG_ERROR,__FUNCTION__,__VA_ARGS__)
+
+#elif defined(VM_INFO)
+
 #define LOG_D(...)
+#define LOG_I(...) __android_log_print(ANDROID_LOG_INFO ,__FUNCTION__,__VA_ARGS__)
+#define LOG_W(...) __android_log_print(ANDROID_LOG_WARN ,__FUNCTION__,__VA_ARGS__)
+#define LOG_E(...) __android_log_print(ANDROID_LOG_ERROR,__FUNCTION__,__VA_ARGS__)
+
+#else
+
+#define LOG_D(...)
+#define LOG_I(...)
 #define LOG_W(...)
 #define LOG_E(...)
+
 #endif
 
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))

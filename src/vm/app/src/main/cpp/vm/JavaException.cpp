@@ -2,13 +2,13 @@
 // Created by 陈泽伦 on 12/3/20.
 //
 
-#include "JAVAException.h"
+#include "JavaException.h"
 #include "../VmContext.h"
 #include "../common/VmConstant.h"
 #include "../common/Util.h"
 
-void JAVAException::throwJavaException(VmMethodContext *vmc) {
-#ifdef VM_DEBUG
+void JavaException::throwJavaException(VmMethodContext *vmc) {
+#if defined(VM_DEBUG)
     (*VM_CONTEXT::env).ExceptionDescribe();
 #endif
     vmc->curException = (*VM_CONTEXT::env).ExceptionOccurred();
@@ -16,7 +16,7 @@ void JAVAException::throwJavaException(VmMethodContext *vmc) {
     (*VM_CONTEXT::env).ExceptionClear();
 }
 
-bool JAVAException::handleJavaException(VmMethodContext *vmc) {
+bool JavaException::handleJavaException(VmMethodContext *vmc) {
     /*
      * We need to unroll to the catch block or the nearest "break"
      * frame.
@@ -35,7 +35,7 @@ bool JAVAException::handleJavaException(VmMethodContext *vmc) {
 
     JNIEnv *env = VM_CONTEXT::env;
     const DexTry *pTry = (DexTry *) vmc->method->triesAndHandlersBuf;
-    const u1 *catchHandlerList = (u1 * )(pTry + vmc->method->code->triesSize);
+    const u1 *catchHandlerList = (u1 *) (pTry + vmc->method->code->triesSize);
     const u4 pc_off = vmc->pc_cur();
     const DexTry *pBestTry = nullptr;
     u4 catchOff = -1;
@@ -76,62 +76,66 @@ bool JAVAException::handleJavaException(VmMethodContext *vmc) {
     } else {
         LOG_D("handle the exception.");
         vmc->set_pc(catchOff);
+        // remove the exception.
+        vmc->curException = nullptr;
         return true;
     }
 }
 
-bool JAVAException::checkForNull(jobject obj) {
+bool JavaException::checkForNull(VmMethodContext *vmc, jobject obj) {
     LOG_D("obj: %p", obj);
     if (obj == nullptr) {
-        JAVAException::throwNullPointerException(nullptr);
+        JavaException::throwNullPointerException(vmc, nullptr);
         return false;
     }
     return true;
 }
 
-void JAVAException::throwNullPointerException(const char *msg) {
-    JAVAException::throwNew(VM_REFLECT::C_NAME_NullPointerException, msg);
+void JavaException::throwNullPointerException(VmMethodContext *vmc, const char *msg) {
+    JavaException::throwNew(vmc, VM_REFLECT::C_NAME_NullPointerException, msg);
 }
 
-void JAVAException::throwNew(const char *exceptionClassName, const char *msg) {
+void
+JavaException::throwNew(VmMethodContext *vmc, const char *exceptionClassName, const char *msg) {
     JNIEnv *env = VM_CONTEXT::env;
     jclass clazz = (*env).FindClass(exceptionClassName);
     assert(clazz != nullptr);
     (*env).ThrowNew(clazz, msg);
+    JavaException::throwJavaException(vmc);
 }
 
 void
-JAVAException::throwClassCastException(jclass actual, jclass desired) {
-#ifdef VM_DEBUG
+JavaException::throwClassCastException(VmMethodContext *vmc, jclass actual, jclass desired) {
+#if defined(VM_DEBUG)
     std::string msg = VmMethod::getClassDescriptorByJClass(actual);
     msg += " cannot be cast to ";
     msg += VmMethod::getClassDescriptorByJClass(desired);
 #else
     std::string msg = "cannot cast class.";
 #endif
-    JAVAException::throwNew(VM_REFLECT::C_NAME_ClassCastException, msg.data());
+    JavaException::throwNew(vmc, VM_REFLECT::C_NAME_ClassCastException, msg.data());
 }
 
-void JAVAException::throwNegativeArraySizeException(s4 size) {
+void JavaException::throwNegativeArraySizeException(VmMethodContext *vmc, s4 size) {
     char msgBuf[BUFSIZ];
     sprintf(msgBuf, "%d", size);
-    JAVAException::throwNew(VM_REFLECT::C_NAME_NegativeArraySizeException, msgBuf);
+    JavaException::throwNew(vmc, VM_REFLECT::C_NAME_NegativeArraySizeException, msgBuf);
 }
 
-void JAVAException::throwRuntimeException(const char *msg) {
-    JAVAException::throwNew(VM_REFLECT::C_NAME_RuntimeException, msg);
+void JavaException::throwRuntimeException(VmMethodContext *vmc, const char *msg) {
+    JavaException::throwNew(vmc, VM_REFLECT::C_NAME_RuntimeException, msg);
 }
 
-void JAVAException::throwInternalError(const char *msg) {
-    JAVAException::throwNew(VM_REFLECT::C_NAME_InternalError, msg);
+void JavaException::throwInternalError(VmMethodContext *vmc, const char *msg) {
+    JavaException::throwNew(vmc, VM_REFLECT::C_NAME_InternalError, msg);
 }
 
-void JAVAException::throwArrayIndexOutOfBoundsException(u4 length, u4 index) {
+void JavaException::throwArrayIndexOutOfBoundsException(VmMethodContext *vmc, u4 length, u4 index) {
     char msgBuf[BUFSIZ];
     sprintf(msgBuf, "length=%d; index=%d", length, index);
-    JAVAException::throwNew(VM_REFLECT::C_NAME_ArrayIndexOutOfBoundsException, msgBuf);
+    JavaException::throwNew(vmc, VM_REFLECT::C_NAME_ArrayIndexOutOfBoundsException, msgBuf);
 }
 
-void JAVAException::throwArithmeticException(const char *msg) {
-    JAVAException::throwNew(VM_REFLECT::C_NAME_ArithmeticException, msg);
+void JavaException::throwArithmeticException(VmMethodContext *vmc, const char *msg) {
+    JavaException::throwNew(vmc, VM_REFLECT::C_NAME_ArithmeticException, msg);
 }

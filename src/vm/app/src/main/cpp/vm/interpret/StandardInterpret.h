@@ -20,21 +20,11 @@ public:
 
     static void filledNewArray(VmMethodContext *vmc, bool range);
 
-    static s4 handlePackedSwitch(const u2 *switchData, s4 testVal);
+    static s4 handlePackedSwitch(VmMethodContext *vmc,const u2 *switchData, s4 testVal);
 
-    static s4 handleSparseSwitch(const u2 *switchData, s4 testVal);
+    static s4 handleSparseSwitch(VmMethodContext *vmc,const u2 *switchData, s4 testVal);
 
-    static const jvalue *pushMethodParams(VmMethodContext *vmc, bool isStatic);
-
-    static const jvalue *pushMethodParamsRange(VmMethodContext *vmc, bool isStatic);
-
-    static void invokeMethod(VmMethodContext *vmc, const jvalue *params);
-
-    static void invokeSuperMethod(VmMethodContext *vmc, const jvalue *params);
-
-    static void invokeStaticMethod(VmMethodContext *vmc, const jvalue *params);
-
-#ifdef VM_DEBUG
+#if defined(VM_DEBUG)
 
     static void debugInvokeMethod(VmMethodContext *vmc, jmethodID methodCalled,
                                   const char *shorty, const jvalue retVal,

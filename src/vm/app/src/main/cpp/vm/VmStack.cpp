@@ -3,45 +3,66 @@
 //
 
 #include "VmStack.h"
-#include "VmMemory.h"
 #include "../VmContext.h"
 #include <cstdlib>
 
-VmTempData *VmStack::getTempDataBuf() {
-    memset(&this->methodTempData, 0, sizeof(this->methodTempData));
-    return &this->methodTempData;
-}
-
-VmMethodContext *
-VmStack::push(
-        jobject caller, const VmMethod *method, jvalue *pResult, va_list param) {
-    assert(method->code != nullptr);
-    VmFrame *frame = this->mallocFrame();
+void
+VmRandomStack::push(
+        jobject caller, jmethodID method, jvalue *pResult, va_list param) {
+    VmFrame *frame = this->newFrame(caller, method, pResult, param);
     LOG_D("frame: %p", frame);
-    frame->vmc.reset(caller, method, pResult, param);
+    LOG_D("\n**********************************  "
+          "enter vm: %s"
+          "  **********************************", frame->vmc.method->name);
+    LOG_I("enter vm: %s", frame->vmc.method->name);
     frame->pre = this->topFrame;
     this->topFrame = frame;
-    return &frame->vmc;
 }
 
-void VmStack::pop() {
+void VmRandomStack::pushWithoutParams(jmethodID method, jvalue *pResult) {
+    VmFrame *frame = this->mallocFrame();
+    frame->vmc.resetWithoutParams(method, pResult);
+    frame->pre = this->topFrame;
+    this->topFrame = frame;
+}
+
+void VmRandomStack::pop() {
     assert(this->topFrame != nullptr);
     VmFrame *frame = this->topFrame;
     LOG_D("frame: %p", frame);
+    LOG_I("exit  vm: %s", frame->vmc.method->name);
+    LOG_D("**********************************  "
+          "exit  vm: %s"
+          "  **********************************\n", frame->vmc.method->name);
     this->topFrame = frame->pre;
+    this->deleteFrame(frame);
+}
+
+VmFrame *VmRandomStack::newFrame(
+        jobject caller, jmethodID method, jvalue *pResult, va_list param) {
+    VmFrame *frame = this->mallocFrame();
+    frame->vmc.reset(caller, method, pResult, param);
+    frame->pre = nullptr;
+    return frame;
+}
+
+void VmRandomStack::deleteFrame(VmFrame *frame) {
+    this->topFrame->vmc.curException = frame->pre->vmc.curException;
+    frame->pre = nullptr;
+    frame->vmc.release();
     this->freeFrame(frame);
 }
 
-VmStack::VmStack(uint16_t freePageSize, VmMemory *vmMemory) {
+VmRandomStack::VmRandomStack(uint16_t freePageSize) {
     this->freePageCount = freePageSize;
     this->topFrame = nullptr;
     for (int i = 0; i < freePageSize; ++i) {
-        this->freeMem.push_back(vmMemory->malloc());
+        this->freeMem.push_back(VM_CONTEXT::vm->malloc());
         this->freePages.push_back(0UL);
     }
 }
 
-VmFrame *VmStack::mallocFrame() {
+VmFrame *VmRandomStack::mallocFrame() {
     uint64_t r;
     uint32_t d;
     uint32_t offset;
@@ -59,7 +80,7 @@ VmFrame *VmStack::mallocFrame() {
         fullPages.insert(this->freeMem[d]);
         LOG_D("add a full page: %p", this->freeMem[d]);
         if (freePages.size() == freePageCount) {
-            this->freeMem[d] = VM_CONTEXT::vm->getVmMemory()->malloc();
+            this->freeMem[d] = VM_CONTEXT::vm->malloc();
             this->freePages[d] = 0UL;
         } else {
             this->freePages.erase(this->freePages.begin() + d);
@@ -69,7 +90,7 @@ VmFrame *VmStack::mallocFrame() {
     return (VmFrame *) (ret + (offset << 6u));
 }
 
-void VmStack::freeFrame(VmFrame *frame) {
+void VmRandomStack::freeFrame(VmFrame *frame) {
     uint32_t offset = ((uint64_t) frame & 0x3fu);
     uint64_t r = 1UL << offset;
     auto *f = (uint8_t *) frame;
@@ -80,7 +101,7 @@ void VmStack::freeFrame(VmFrame *frame) {
             LOG_D("free a frame: %p, off: %u, r: 0x%016lu", this->freeMem[i], offset, r);
             if (this->freePages[i] == 0u &&
                 this->freePages.size() > this->freePageCount) {
-                VM_CONTEXT::vm->getVmMemory()->free(this->freeMem[i]);
+                VM_CONTEXT::vm->free(this->freeMem[i]);
                 this->freePages.erase(this->freePages.begin() + i);
                 this->freeMem.erase(this->freeMem.begin() + i);
             }

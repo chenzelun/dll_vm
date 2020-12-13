@@ -7,7 +7,8 @@
 
 #include <map>
 #include <string>
-#include "../vm/VmMethod.h"
+#include "../base/VmMethod.h"
+#include "VmMethodCaller.h"
 
 class CodeHandler {
 public:
@@ -16,6 +17,7 @@ public:
 
 class Interpret {
 protected:
+    VmMethodCaller* caller;
     std::map<uint32_t, CodeHandler *> codeMap;
 
 public:

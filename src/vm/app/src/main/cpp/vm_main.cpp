@@ -13,7 +13,7 @@
  * @return JNI_VERSION_1_4
  */
 jint JNI_OnLoad(JavaVM *vm, void *unused) {
-    LOG_D("start, JNI_OnLoad(JavaVM *vm, void* unused)");
+    LOG_I("start, JNI_OnLoad(JavaVM *vm, void* unused)");
 
     // get JNIEnv
     JNIEnv *env = nullptr;
@@ -36,6 +36,6 @@ jint JNI_OnLoad(JavaVM *vm, void *unused) {
 
     VM_CONTEXT::loadDexFromMemory();
     VM_CONTEXT::changeTopApplication();
-    LOG_D("VM init success.");
+    LOG_I("VM init success.");
     return JNI_VERSION_1_4;
 }

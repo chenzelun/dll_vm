@@ -19,10 +19,10 @@
   + [ ] randomized bytecode and update interpreter
   + [ ] relocate "relocate" and confusion
   + [x] add code cache(used map:{k: method id, v: CodeItem})
-  + [ ] hide stack
+  + [x] hide stack
   + [x] stack in random address
   + [ ] cancel JNI call
-  + [ ] delete debug info in dex file
+  + [x] delete debug info in dex file
   + [ ] test App's profile
   
   
@@ -33,6 +33,10 @@
   
 
 ## git log
+    [2020-12-13]:   1. TODO: hide stack
+                    2. TODO: delete debug info in dex file
+                    3. deal with VmException and JavaException
+                    4. don't test.
     [2020-12-09]:   1. TODO: stack in random address
                     2. have some bugs, eg: logcat is different every time
                         and may be too much log

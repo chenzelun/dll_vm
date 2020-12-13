@@ -45,6 +45,7 @@
       <w>ushr</w>
       <w>vdex</w>
       <w>vdst</w>
+      <w>vmc</w>
       <w>vmcache</w>
       <w>vmcommon</w>
       <w>vmconstant</w>
@@ -53,6 +54,10 @@
       <w>vmkeyfunccodefile</w>
       <w>vmmemory</w>
       <w>vmmethod</w>
+      <w>vmmethodcaller</w>
+      <w>vmmethodcontext</w>
+      <w>vmrandommemory</w>
+      <w>vmrandomstack</w>
       <w>vmstack</w>
       <w>vmstackmanager</w>
       <w>vsrc</w>

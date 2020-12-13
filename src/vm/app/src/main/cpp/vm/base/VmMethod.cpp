@@ -3,9 +3,9 @@
 //
 
 #include "VmMethod.h"
-#include "../common/VmConstant.h"
-#include "../common/AndroidSystem.h"
-#include "../VmContext.h"
+#include "../../common/VmConstant.h"
+#include "../../common/AndroidSystem.h"
+#include "../../VmContext.h"
 
 DexFile::DexFile(const u1 *base) {
     this->base = base;
@@ -340,7 +340,7 @@ std::string VmMethod::resolveMethodSign(u4 idx) const {
     return ret;
 }
 
-#ifdef VM_DEBUG
+#if defined(VM_DEBUG)
 
 void VmMethodContext::printVmMethodContext() const {
 //    LOG_D("current method: %s#%s", this->method->clazzDescriptor, this->method->name);
@@ -353,7 +353,7 @@ void VmMethodContext::printVmMethodContext() const {
 //    LOG_D("exception: %p", this->curException);
 //    LOG_D("val_1: 0x%016lx, val_2: 0x%016lx", this->tmp->val_1.u8, this->tmp->val_2.u8);
 //    LOG_D("pc: %u, cur insns: 0x%02x", this->pc_cur(), this->fetch_op());
-//    LOG_D("isFinish: %s", this->isFinish() ? "true" : "false");
+//    LOG_D("state: %u", this->state);
 }
 
 void VmMethodContext::printMethodInsns() const {
@@ -365,24 +365,25 @@ void VmMethodContext::printMethodInsns() const {
 
 #endif
 
-
-void VmMethodContext::reset(
-        jobject caller, const VmMethod *vmMethod, jvalue *pResult, va_list param) {
-    assert(vmMethod->code != nullptr);
-    this->method = vmMethod;
+void VmMethodContext::resetWithoutParams(jmethodID methodId, jvalue *pResult) {
+    this->method = new VmMethod(methodId, true);
+    assert(this->method->code != nullptr);
     this->retVal = pResult;
-    this->reg = (RegValue *) malloc(sizeof(RegValue) * (method->code->registersSize));
+    this->reg = new RegValue[method->code->registersSize]();
     this->pc = 0;
-    this->tmp = VM_CONTEXT::vm->getStackManager()->getTempDataBuf();
+    this->tmp = VM_CONTEXT::vm->getTempDataBuf();
+    this->state = VmMethodContextState::Running;
+}
 
+void VmMethodContext::pushParams(jobject caller, va_list param) const {
     // 参数入寄存器
     // [0] is return value.
-    const char *desc = method->dexFile->dexStringById(method->protoId->shortyIdx) + 1;
+    const char *desc = this->method->dexFile->dexStringById(method->protoId->shortyIdx) + 1;
     int verifyCount = 0;
-    int startReg = method->code->registersSize - method->code->insSize;
+    int startReg = this->method->code->registersSize - method->code->insSize;
 
     // push this
-    if (!DexFile::isStaticMethod(method->accessFlags)) {
+    if (!DexFile::isStaticMethod(this->method->accessFlags)) {
         this->reg[startReg].l = caller;
         startReg++;
         verifyCount++;
@@ -415,9 +416,22 @@ void VmMethodContext::reset(
         }
     }
 
-    if (verifyCount != method->code->insSize) {
-        LOG_E("Got vfy count=%d insSize=%d for %s", verifyCount, method->code->insSize,
-              method->name);
+    if (verifyCount != this->method->code->insSize) {
+        LOG_E("Got vfy count=%d insSize=%d for %s",
+              verifyCount,
+              this->method->code->insSize,
+              this->method->name);
         throw VMException("error param, and can't push them to vm reg.");
     }
+}
+
+void VmMethodContext::reset(
+        jobject caller, jmethodID methodId, jvalue *pResult, va_list param) {
+    this->resetWithoutParams(methodId, pResult);
+    this->pushParams(caller, param);
+}
+
+void VmMethodContext::release() const {
+    delete this->method;
+    delete[] this->reg;
 }

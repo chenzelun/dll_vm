@@ -7,52 +7,22 @@
 #include "../common/VmConstant.h"
 #include "../VmContext.h"
 #include "interpret/StandardInterpret.h"
-#include "JAVAException.h"
+#include "JavaException.h"
 #include <cmath>
 
 void Vm::callMethod(jobject instance, jmethodID method, jvalue *pResult, ...) {
-    // init vm method from dex file.
-    VmMethod vmMethod(method, true);
-    LOG_D("");
-    LOG_D("********************************** "
-          "enter vm: %s"
-          " **********************************", vmMethod.name);
     va_list args;
     va_start(args, pResult);
     // init vm method context
-    VmMethodContext *vmc = VM_CONTEXT::vm->getStackManager()->push(
-            instance, &vmMethod, pResult, args);
+    VM_CONTEXT::vm->push(instance, method, pResult, args);
     va_end(args);
     // do it
-    VM_CONTEXT::vm->run(vmc);
-    VM_CONTEXT::vm->getStackManager()->pop();
-    LOG_D("********************************** "
-          "exit  vm: %s"
-          " **********************************", vmMethod.name);
-    LOG_D("");
+    VM_CONTEXT::vm->run();
+    VM_CONTEXT::vm->pop();
 }
 
-Vm::Vm() {
-    LOG_D("VmMethodContext size of: %lu", sizeof(VmMethodContext));
-    this->vmMemory = new VmMemory(VM_CONFIG::VM_MEMORY_SIZE);
-    // TODO: change vm.Interpret.
-    this->interpret = nullptr;
-    this->stackManager = new VmStack(VM_CONFIG::VM_STACK_FREE_PAGE_SIZE, this->vmMemory);
-    this->initPrimitiveClass();
-}
-
-Vm::~Vm() {
-    delete this->interpret;
-    delete this->stackManager;
-    delete this->vmMemory;
-}
-
-void Vm::setInterpret(Interpret *pInterpret) {
-    this->interpret = pInterpret;
-}
-
-void Vm::run(VmMethodContext *vmc) const {
-#ifdef VM_DEBUG
+void Vm::run() {
+#if defined(VM_DEBUG)
     vmc->printMethodInsns();
 #endif
 
@@ -61,14 +31,45 @@ void Vm::run(VmMethodContext *vmc) const {
         throw VMException("vm::interpret == nullptr");
     }
 
-    while (!vmc->isFinish()) {
-        if (vmc->curException != nullptr && !JAVAException::handleJavaException(vmc)) {
+    RUN_VM_METHOD:
+    while (!this->getCurVMC()->isFinish()) {
+        if (this->getCurVMC()->curException != nullptr &&
+            !JavaException::handleJavaException(this->getCurVMC())) {
             LOG_D("threw exception.");
-            (*VM_CONTEXT::env).Throw(vmc->curException);
-            return;
+            break;
+        } else if (this->getCurVMC()->isMethodToCall()) {
+            LOG_D("invoke a new function.");
+            if (!Vm::isKeyFunction(this->getCurVMC()->tmp->val_1.u4)) {
+                // call method by jni and check exceptions.
+                this->jniMethodCaller->call(this->getCurVMC());
+                this->getCurVMC()->pc_off(3);
+                continue;       // must be continue
+            } else {
+                // push the VmMethodContext and
+                // build new method's context which is to called.
+                this->keyMethodCaller->call(this->getCurVMC());
+            }
         }
-        this->interpret->run(vmc);
+        // run opcode.
+        this->interpret->run(this->getCurVMC());
     }
+
+    if (this->isCallFromVm()) {
+        // pop the current VmMethodContext and
+        // resume the old called by this->keyMethodCaller.
+        // throw exceptions if has.
+        this->pop();
+        this->getCurVMC()->pc_off(3);
+        goto RUN_VM_METHOD;
+    }
+    // throw uncaught exceptions called by this->jniMethodCaller.
+    (*VM_CONTEXT::env).Throw(this->getCurVMC()->curException);
+}
+
+void Vm::setInterpret(Interpret *pInterpret) {
+    LOG_I("start,  setInterpret.");
+    this->interpret = pInterpret;
+    LOG_I("finish, setInterpret.");
 }
 
 jclass Vm::findPrimitiveClass(const char type) const {
@@ -106,10 +107,51 @@ void Vm::initPrimitiveClass() {
     LOG_D("init primitiveClass end");
 }
 
-VmStack *Vm::getStackManager() const {
-    return stackManager;
+bool Vm::isKeyFunction(uint32_t methodId) {
+    return VM_CONTEXT::vmKFCFile->getCode(methodId) != nullptr;
 }
 
-VmMemory *Vm::getVmMemory() const {
-    return vmMemory;
+void Vm::push(jobject caller, jmethodID method, jvalue *pResult, va_list param) {
+    this->stackManager->push(caller, method, pResult, param);
+}
+
+void Vm::pushWithoutParams(jmethodID method, jvalue *pResult) {
+    this->stackManager->pushWithoutParams(method, pResult);
+}
+
+void Vm::pop() {
+    this->stackManager->pop();
+}
+
+VmTempData *Vm::getTempDataBuf() {
+    memset(&this->methodTempData, 0, sizeof(this->methodTempData));
+    return &this->methodTempData;
+}
+
+uint8_t *Vm::malloc() {
+    return this->vmMemory->malloc();
+}
+
+void Vm::free(void *p) {
+    this->vmMemory->free(p);
+}
+
+void Vm::init() {
+    LOG_D("VmFrame size of: %lu", sizeof(VmFrame));
+    static_assert(sizeof(VmFrame) <= 64u, "too big of VmFrame.");
+    this->vmMemory = new VmRandomMemory(VM_CONFIG::VM_MEMORY_SIZE);
+    // TODO: change vm.Interpret.
+    this->interpret = nullptr;
+    this->stackManager = new VmRandomStack(VM_CONFIG::VM_STACK_FREE_PAGE_SIZE);
+    this->initPrimitiveClass();
+    this->keyMethodCaller = new VmKeyMethodCaller();
+    this->jniMethodCaller = new VmJniMethodCaller();
+}
+
+Vm::~Vm() {
+    delete this->interpret;
+    delete this->stackManager;
+    delete this->vmMemory;
+    delete this->keyMethodCaller;
+    delete this->jniMethodCaller;
 }

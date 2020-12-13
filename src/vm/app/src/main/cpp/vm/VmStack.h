@@ -5,10 +5,9 @@
 #ifndef VM_VMSTACK_H
 #define VM_VMSTACK_H
 
-#include "VmCommon.h"
-#include "VmMethod.h"
+#include "base/VmCommon.h"
+#include "base/VmMethod.h"
 #include "../common/VmConstant.h"
-#include "VmMemory.h"
 
 #include <vector>
 #include <set>
@@ -19,6 +18,15 @@ struct VmFrame {
 };
 
 class VmStack {
+public:
+    virtual void push(jobject caller, jmethodID method, jvalue *pResult, va_list param) = 0;
+
+    virtual void pushWithoutParams(jmethodID method, jvalue *pResult) = 0;
+
+    virtual void pop() = 0;
+};
+
+class VmRandomStack : public VmStack {
 private:
     // page
     uint32_t freePageCount;
@@ -29,23 +37,26 @@ private:
     // call stack
     VmFrame *topFrame;
 
-    // tmp data
-    VmTempData methodTempData;
-
     // PAGE_SIZE = 4KB
     const uint16_t DATA_COUNT_IN_PAGE = 64u;
 
 public:
-    VmStack(uint16_t freePageSize, VmMemory *vmMemory);
+    VmRandomStack(uint16_t freePageSize);
 
-    VmTempData *getTempDataBuf();
+    void push(jobject caller, jmethodID method, jvalue *pResult, va_list param) override;
 
-    VmMethodContext *push(
-            jobject caller, const VmMethod *method, jvalue *pResult, va_list param);
+    void pushWithoutParams(jmethodID method, jvalue *pResult) override;
 
-    void pop();
+    void pop() override;
+
+    inline VmFrame *getTopFrame() {
+        return this->topFrame;
+    }
 
 private:
+    VmFrame *newFrame(jobject caller, jmethodID method, jvalue *pResult, va_list param);
+
+    void deleteFrame(VmFrame *frame);
 
     VmFrame *mallocFrame();
 

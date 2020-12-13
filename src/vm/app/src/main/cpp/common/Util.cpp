@@ -79,7 +79,7 @@ std::string &Util::getDexDir() {
 }
 
 void Util::buildFileSystem() {
-    LOG_D("start, buildFileSystem");
+    LOG_I("start,  buildFileSystem");
     std::vector<std::string> path_vec = {
             getBaseFilesDir(),
             getDataDir(),
@@ -96,7 +96,7 @@ void Util::buildFileSystem() {
             throw std::runtime_error("create dir failed");
         }
     }
-    LOG_D("finish, buildFileSystem");
+    LOG_I("finish, buildFileSystem");
 }
 
 const uint8_t *Util::getFileBufFromAssets(const std::string &fileName, uint32_t &buf_size) {

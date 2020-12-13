@@ -7,8 +7,8 @@
 
 
 #include <jni.h>
-#include "../common/Util.h"
-#include "../common/AndroidSystem.h"
+#include "../../common/Util.h"
+#include "../../common/AndroidSystem.h"
 #include "VmCommon.h"
 
 class DexFile {
@@ -136,6 +136,21 @@ public:
     static std::string getClassDescriptorByJClass(jclass clazz);
 };
 
+enum VmMethodContextState {
+    Running,
+    Return,
+    MethodToCall_Start,
+    Method,
+    SuperMethod,
+    StaticMethod,
+    Range,
+    MethodRange,
+    SuperMethodRange,
+    StaticMethodRange,
+    MethodToCall_End,
+    JniMethodToCall,
+};
+
 class VmMethodContext {
 public:
     const VmMethod *method;
@@ -146,13 +161,55 @@ public:
     jthrowable curException = nullptr;
 
 private:
+    VmMethodContextState state;
     uint16_t pc;
-    bool isFinished = false;
 
 public:
-    void reset(jobject caller, const VmMethod *vmMethod, jvalue *pResult, va_list param);
+    inline void setState(VmMethodContextState contextState){
+        this->state = contextState;
+    }
 
-#ifdef VM_DEBUG
+    inline void run() {
+        this->state = VmMethodContextState::Running;
+    }
+
+    inline void callMethodByJni() {
+        this->state = VmMethodContextState::JniMethodToCall;
+    }
+
+    inline bool isCallStaticMethod()const {
+        return this->state == VmMethodContextState::StaticMethod ||
+               this->state == VmMethodContextState::StaticMethodRange;
+    }
+
+    inline bool isCallSuperMethod() const {
+        return this->state == VmMethodContextState::SuperMethod ||
+               this->state == VmMethodContextState::SuperMethodRange;
+    }
+
+    inline bool isCallMethodRange() const {
+        return VmMethodContextState::Range < this->state &&
+               this->state < VmMethodContextState::MethodToCall_End;
+    }
+
+    void reset(jobject caller, jmethodID methodId, jvalue *pResult, va_list param);
+
+    void resetWithoutParams(jmethodID methodId, jvalue *pResult);
+
+    void pushParams(jobject caller, va_list param) const;
+
+    void release() const;
+
+    inline bool isCallFromVm() {
+        return this->isMethodToCall();
+    }
+
+    inline bool isMethodToCall() {
+        return VmMethodContextState::MethodToCall_Start < this->state
+               && this->state < VmMethodContextState::MethodToCall_End;
+    }
+
+#if defined(VM_DEBUG)
 
     void printVmMethodContext() const;
 
@@ -161,12 +218,12 @@ public:
 #endif
 
     inline void finish() {
-        assert(!this->isFinished);
-        this->isFinished = true;
+        assert(this->state != VmMethodContextState::Return);
+        this->state = VmMethodContextState::Return;
     }
 
     inline bool isFinish() const {
-        return this->isFinished;
+        return this->state == VmMethodContextState::Return;
     }
 
     // reader
@@ -203,7 +260,7 @@ public:
         this->pc = off;
     }
 
-    inline void goto_off(int32_t off) {
+    inline void goto_off(int32_t off){
         this->pc = this->pc + off;
         assert(0 <= this->pc && this->pc <= this->method->code->insnsSize);
     }
@@ -214,7 +271,7 @@ public:
         return this->method->code->insns + data_off;
     }
 
-    inline u4 getRegister(uint32_t off) {
+    inline u4 getRegister(uint32_t off)const {
         return this->reg[off].u4;
     }
 
@@ -222,7 +279,7 @@ public:
         this->reg[off].u4 = val;
     }
 
-    inline jint getRegisterInt(uint32_t off) {
+    inline jint getRegisterInt(uint32_t off)const {
         return this->reg[off].i;
     }
 
@@ -230,7 +287,7 @@ public:
         this->reg[off].i = val;
     }
 
-    inline u8 getRegisterWide(uint32_t off) {
+    inline u8 getRegisterWide(uint32_t off)const {
         return this->reg[off].u8;
     }
 
@@ -238,7 +295,7 @@ public:
         this->reg[off].u8 = val;
     }
 
-    inline jobject getRegisterAsObject(uint32_t off) {
+    inline jobject getRegisterAsObject(uint32_t off) const {
         return this->reg[off].l;
     }
 
@@ -246,7 +303,7 @@ public:
         this->reg[off].l = val;
     }
 
-    inline jfloat getRegisterFloat(uint32_t off) {
+    inline jfloat getRegisterFloat(uint32_t off) const {
         return this->reg[off].f;
     }
 
@@ -254,7 +311,7 @@ public:
         this->reg[off].f = val;
     }
 
-    inline jfloat getRegisterDouble(uint32_t off) {
+    inline jfloat getRegisterDouble(uint32_t off) const {
         return this->reg[off].f;
     }
 
@@ -262,7 +319,7 @@ public:
         this->reg[off].d = val;
     }
 
-    inline jlong getRegisterLong(uint32_t off) {
+    inline jlong getRegisterLong(uint32_t off) const {
         return this->reg[off].j;
     }
 

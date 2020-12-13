@@ -13,17 +13,17 @@ VmKeyFuncCodeFile *VM_CONTEXT::vmKFCFile = nullptr;
 Vm *VM_CONTEXT::vm = nullptr;
 
 void VM_CONTEXT::initVmDataFileOfVC() {
-    LOG_D("start, initVmDataFileOfVC");
+    LOG_I("start,  initVmDataFileOfVC");
     uint32_t bufSize = 0;
     const uint8_t *vmDataFileBuf =
             Util::getFileBufFromAssets(VM_CONFIG::VM_DATA_FILE_NAME, bufSize);
     assert(bufSize != 0);
     VM_CONTEXT::vmDataFile = new VmDataFile(vmDataFileBuf, bufSize);
-    LOG_D("finish, initVmDataFileOfVC");
+    LOG_I("finish, initVmDataFileOfVC");
 }
 
 void VM_CONTEXT::loadDexFromMemory() {
-    LOG_D("start, loadDexFromMemory");
+    LOG_I("start,  loadDexFromMemory");
     JNIEnv *pEnv = VM_CONTEXT::env;
     // update mCookie
     LOG_D("0");
@@ -104,11 +104,11 @@ void VM_CONTEXT::loadDexFromMemory() {
 //    (*pEnv).DeleteLocalRef(cDexFile);
 //    (*pEnv).DeleteLocalRef(cByteBuffer);
 //    (*pEnv).DeleteLocalRef(cElement);
-    LOG_D("finish, loadDexFromMemory");
+    LOG_I("finish, loadDexFromMemory");
 }
 
 void VM_CONTEXT::changeTopApplication() {
-    LOG_D("start, changeTopApplication");
+    LOG_I("start,  changeTopApplication");
     JNIEnv *pEnv = VM_CONTEXT::env;
     // config dynamic loading pEnv
 
@@ -272,17 +272,20 @@ void VM_CONTEXT::changeTopApplication() {
 //    (*pEnv).DeleteLocalRef(cProviderClientRecord);
 //    (*pEnv).DeleteLocalRef(cMap);
 //    (*pEnv).DeleteLocalRef(c2Application);
-    LOG_D("finish, changeTopApplication");
+    LOG_I("finish, changeTopApplication");
 }
 
 void VM_CONTEXT::initVmKeyFuncCodeFileOfVC() {
-    LOG_D("start, initVmKeyFuncCodeFileOfVC.");
+    LOG_I("start,  initVmKeyFuncCodeFileOfVC.");
     VDF_FileData kfc;
     VM_CONTEXT::vmDataFile->findFileByName(VM_CONFIG::VM_KEY_FUNC_CODE_FILE_NAME, kfc);
     VM_CONTEXT::vmKFCFile = new VmKeyFuncCodeFile(kfc.getData(), kfc.getDataSize());
-    LOG_D("finish, initVmKeyFuncCodeFileOfVC.");
+    LOG_I("finish, initVmKeyFuncCodeFileOfVC.");
 }
 
 void VM_CONTEXT::initVm() {
+    LOG_I("start,  initVm.");
     VM_CONTEXT::vm = new Vm();
+    VM_CONTEXT::vm->init();
+    LOG_I("finish, initVm.");
 }

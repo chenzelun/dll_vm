@@ -32,12 +32,13 @@ add_library( # Sets the name of the library.
         data/VmKeyFuncCodeFile.cpp
 
         vm/Vm.cpp
-        vm/VmMethod.cpp
-        vm/JAVAException.cpp
+        vm/JavaException.cpp
         vm/VmStack.cpp
-        vm/VmMemory.cpp
+        vm/base/VmMethod.cpp
+        vm/base/VmMemory.cpp
 
         vm/interpret/StandardInterpret.cpp
+        vm/interpret/VmMethodCaller.cpp
         )
 
 

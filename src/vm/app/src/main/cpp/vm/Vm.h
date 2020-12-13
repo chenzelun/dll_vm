@@ -7,36 +7,60 @@
 
 #include <jni.h>
 #include <string>
-#include "VmMethod.h"
+#include "base/VmMethod.h"
 #include "interpret/Interpret.h"
 #include "VmStack.h"
-#include "VmMemory.h"
+#include "base/VmMemory.h"
 
 #define  PRIMITIVE_TYPE_SIZE 8
 
-class Vm {
+class Vm : public VmMemory, public VmStack {
 private:
     Interpret *interpret;
-    VmStack *stackManager;
-    VmMemory *vmMemory;
-public:
-    VmMemory *getVmMemory() const;
+    VmRandomStack *stackManager;
+    VmRandomMemory *vmMemory;
+    VmKeyMethodCaller *keyMethodCaller;
+    VmJniMethodCaller *jniMethodCaller;
+
+    // tmp data
+    VmTempData methodTempData;
 
 public:
-    VmStack *getStackManager() const;
+    VmTempData *getTempDataBuf();
+
+    inline VmMethodContext *getCurVMC() {
+        return &this->stackManager->getTopFrame()->vmc;
+    }
+
+    inline bool isCallFromVm() {
+        VmFrame *pre = this->stackManager->getTopFrame()->pre;
+        return pre != nullptr && pre->vmc.isCallFromVm();
+    }
 
     static void
     callMethod(jobject instance, jmethodID method, jvalue *pResult, ...);
 
-    Vm();
+    static bool isKeyFunction(uint32_t methodId);
+
+    void init();
 
     ~Vm();
 
+    jclass findPrimitiveClass(const char type) const;
+
     void setInterpret(Interpret *pInterpret);
 
-    void run(VmMethodContext *vmc) const;
+    void run();
 
-    jclass findPrimitiveClass(const char type) const;
+    void push(jobject caller, jmethodID method, jvalue *pResult, va_list param) override;
+
+    void pushWithoutParams(jmethodID method, jvalue *pResult) override;
+
+    void pop() override;
+
+    uint8_t *malloc() override;
+
+    void free(void *p) override;
 
 
 private:

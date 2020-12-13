@@ -3,8 +3,10 @@
 //
 
 #include "StandardInterpret.h"
-#include "../VmContext.h"
-#include "../vm/JAVAException.h"
+#include "../../VmContext.h"
+#include "../JavaException.h"
+#include "../Vm.h"
+#include "../VmStack.h"
 #include <cmath>
 
 static const char kSpacing[] = "            ";
@@ -270,7 +272,7 @@ void StandardInterpret::filledNewArray(VmMethodContext *vmc, bool range) {
 
     vmc->tmp->val_1.lc = vmc->method->resolveClass(vmc->tmp->val_1.u4);
     if (vmc->tmp->val_1.lc == nullptr) {
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwJavaException(vmc);
         return;
     }
     const std::string desc = VmMethod::getClassDescriptorByJClass(vmc->tmp->val_1.lc);
@@ -282,14 +284,12 @@ void StandardInterpret::filledNewArray(VmMethodContext *vmc, bool range) {
     if (typeCh == 'D' || typeCh == 'J') {
         /* category 2 primitives not allowed */
         LOG_E("category 2 primitives('D' or 'J') not allowed");
-        JAVAException::throwRuntimeException("bad filled array req");
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwRuntimeException(vmc, "bad filled array req");
         return;
     } else if (typeCh != 'L' && typeCh != '[' && typeCh != 'I') {
         LOG_E("non-int primitives not implemented");
-        JAVAException::throwInternalError(
-                "filled-new-array not implemented for anything but 'int'");
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwInternalError(
+                vmc, "filled-new-array not implemented for anything but 'int'");
         return;
     }
 
@@ -363,7 +363,7 @@ void StandardInterpret::filledNewArray(VmMethodContext *vmc, bool range) {
     vmc->pc_off(3);
 }
 
-s4 StandardInterpret::handlePackedSwitch(const u2 *switchData, s4 testVal) {
+s4 StandardInterpret::handlePackedSwitch(VmMethodContext *vmc, const u2 *switchData, s4 testVal) {
     const int kInstrLen = 3;
     /*
      * Packed switch data format:
@@ -376,7 +376,7 @@ s4 StandardInterpret::handlePackedSwitch(const u2 *switchData, s4 testVal) {
      */
     if (*switchData++ != kPackedSwitchSignature) {
         /* should have been caught by verifier */
-        JAVAException::throwInternalError("bad packed switch magic");
+        JavaException::throwInternalError(vmc, "bad packed switch magic");
         return kInstrLen;
     }
     u2 size = *switchData++;
@@ -398,7 +398,7 @@ s4 StandardInterpret::handlePackedSwitch(const u2 *switchData, s4 testVal) {
     return *(s4 *) (entries + index);
 }
 
-s4 StandardInterpret::handleSparseSwitch(const u2 *switchData, s4 testVal) {
+s4 StandardInterpret::handleSparseSwitch(VmMethodContext *vmc, const u2 *switchData, s4 testVal) {
     const int kInstrLen = 3;
 
     /*
@@ -413,7 +413,7 @@ s4 StandardInterpret::handleSparseSwitch(const u2 *switchData, s4 testVal) {
 
     if (*switchData++ != kSparseSwitchSignature) {
         /* should have been caught by verifier */
-        JAVAException::throwInternalError("bad sparse switch magic");
+        JavaException::throwInternalError(vmc, "bad sparse switch magic");
         return kInstrLen;
     }
 
@@ -456,301 +456,7 @@ s4 StandardInterpret::handleSparseSwitch(const u2 *switchData, s4 testVal) {
     return kInstrLen;
 }
 
-void StandardInterpret::invokeMethod(VmMethodContext *vmc, const jvalue *params) {
-    JNIEnv *env = VM_CONTEXT::env;
-    jmethodID methodToCall = vmc->method->resolveMethod(vmc->tmp->val_1.u4, false);
-    if ((*env).ExceptionCheck()) {
-        JAVAException::throwJavaException(vmc);
-        return;
-    }
-
-    jobject thisObj = vmc->tmp->val_2.l;
-    if (!JAVAException::checkForNull(thisObj)) {
-        JAVAException::throwJavaException(vmc);
-        return;
-    }
-    vmc->retVal->j = 0L;
-    const char *shorty = vmc->method->dexFile->dexGetMethodShorty(vmc->tmp->val_1.u4);
-    switch (shorty[0]) {
-        case 'I':
-            vmc->retVal->i = (*env).CallIntMethodA(thisObj, methodToCall, params);
-            break;
-
-        case 'Z':
-            vmc->retVal->z = (*env).CallBooleanMethodA(thisObj, methodToCall, params);
-            break;
-
-        case 'B':
-            vmc->retVal->b = (*env).CallBooleanMethodA(thisObj, methodToCall, params);
-            break;
-
-        case 'S':
-            vmc->retVal->s = (*env).CallShortMethodA(thisObj, methodToCall, params);
-            break;
-
-        case 'C':
-            vmc->retVal->c = (*env).CallCharMethodA(thisObj, methodToCall, params);
-            break;
-
-        case 'F':
-            vmc->retVal->f = (*env).CallFloatMethodA(thisObj, methodToCall, params);
-            break;
-
-        case 'L':
-            vmc->retVal->l = (*env).CallObjectMethodA(thisObj, methodToCall, params);
-            break;
-
-        case 'D':
-            vmc->retVal->d = (*env).CallDoubleMethodA(thisObj, methodToCall, params);
-            break;
-
-        case 'J':
-            vmc->retVal->j = (*env).CallLongMethodA(thisObj, methodToCall, params);
-            break;
-
-        case 'V':
-            (*env).CallVoidMethodA(thisObj, methodToCall, params);
-            break;
-
-        default:
-            LOG_E("error method's return type(%s)...", shorty);
-            JAVAException::throwRuntimeException("error type of field... cc");
-            break;
-    }
-
-#ifdef VM_DEBUG
-    StandardInterpret::debugInvokeMethod(vmc, methodToCall, shorty, *vmc->retVal, params);
-#endif
-}
-
-void StandardInterpret::invokeStaticMethod(VmMethodContext *vmc, const jvalue *params) {
-    JNIEnv *env = VM_CONTEXT::env;
-    jmethodID methodToCall = vmc->method->resolveMethod(vmc->tmp->val_1.u4, false);
-    if ((*env).ExceptionCheck()) {
-        JAVAException::throwJavaException(vmc);
-        return;
-    }
-
-    u4 clazzTypeIdx = vmc->method->dexFile->dexGetMethodId(vmc->tmp->val_1.u4)->classIdx;
-    jclass thisClazz = vmc->method->resolveClass(clazzTypeIdx);
-    assert(thisClazz != nullptr);
-
-    vmc->retVal->j = 0L;
-    const char *shorty = vmc->method->dexFile->dexGetMethodShorty(vmc->tmp->val_1.u4);
-    switch (shorty[0]) {
-        case 'I':
-            vmc->retVal->i = (*env).CallStaticIntMethodA(thisClazz, methodToCall, params);
-            break;
-
-        case 'Z':
-            vmc->retVal->z = (*env).CallStaticBooleanMethodA(thisClazz, methodToCall, params);
-            break;
-
-        case 'B':
-            vmc->retVal->b = (*env).CallStaticBooleanMethodA(thisClazz, methodToCall, params);
-            break;
-
-        case 'S':
-            vmc->retVal->s = (*env).CallStaticShortMethodA(thisClazz, methodToCall, params);
-            break;
-
-        case 'C':
-            vmc->retVal->c = (*env).CallStaticCharMethodA(thisClazz, methodToCall, params);
-            break;
-
-        case 'F':
-            vmc->retVal->f = (*env).CallStaticFloatMethodA(thisClazz, methodToCall, params);
-            break;
-
-        case 'L':
-            vmc->retVal->l = (*env).CallStaticObjectMethodA(thisClazz, methodToCall, params);
-            break;
-
-        case 'D':
-            vmc->retVal->d = (*env).CallStaticDoubleMethodA(thisClazz, methodToCall, params);
-            break;
-
-        case 'J':
-            vmc->retVal->j = (*env).CallStaticLongMethodA(thisClazz, methodToCall, params);
-            break;
-
-        case 'V':
-            (*env).CallStaticVoidMethodA(thisClazz, methodToCall, params);
-            break;
-
-        default:
-            LOG_E("error method's return type(%s)...", shorty);
-            JAVAException::throwRuntimeException("error type of field... cc");
-            break;
-    }
-
-#ifdef VM_DEBUG
-    StandardInterpret::debugInvokeMethod(vmc, methodToCall, shorty, *vmc->retVal, params);
-#endif
-}
-
-void StandardInterpret::invokeSuperMethod(VmMethodContext *vmc, const jvalue *params) {
-    JNIEnv *env = VM_CONTEXT::env;
-    jmethodID methodToCall = vmc->method->resolveMethod(vmc->tmp->val_1.u4, false);
-    if ((*env).ExceptionCheck()) {
-        JAVAException::throwJavaException(vmc);
-        return;
-    }
-
-    jobject thisObj = vmc->tmp->val_2.l;
-    if (!JAVAException::checkForNull(thisObj)) {
-        JAVAException::throwJavaException(vmc);
-        return;
-    }
-
-    u4 clazzTypeIdx = vmc->method->dexFile->dexGetMethodId(vmc->tmp->val_1.u4)->classIdx;
-    jclass thisClazz = vmc->method->resolveClass(clazzTypeIdx);
-    assert(thisClazz != nullptr);
-
-    vmc->retVal->j = 0L;
-    const char *shorty = vmc->method->dexFile->dexGetMethodShorty(vmc->tmp->val_1.u4);
-    switch (shorty[0]) {
-        case 'I':
-            vmc->retVal->i = (*env).CallNonvirtualIntMethodA(
-                    thisObj, thisClazz, methodToCall, params);
-            break;
-
-        case 'Z':
-            vmc->retVal->z = (*env).CallNonvirtualBooleanMethodA(
-                    thisObj, thisClazz, methodToCall, params);
-            break;
-
-        case 'B':
-            vmc->retVal->b = (*env).CallNonvirtualBooleanMethodA(
-                    thisObj, thisClazz, methodToCall, params);
-            break;
-
-        case 'S':
-            vmc->retVal->s = (*env).CallNonvirtualShortMethodA(
-                    thisObj, thisClazz, methodToCall, params);
-            break;
-
-        case 'C':
-            vmc->retVal->c = (*env).CallNonvirtualCharMethodA(
-                    thisObj, thisClazz, methodToCall, params);
-            break;
-
-        case 'F':
-            vmc->retVal->f = (*env).CallNonvirtualFloatMethodA(
-                    thisObj, thisClazz, methodToCall, params);
-            break;
-
-        case 'L':
-            vmc->retVal->l = (*env).CallNonvirtualObjectMethodA(
-                    thisObj, thisClazz, methodToCall, params);
-            break;
-
-        case 'D':
-            vmc->retVal->d = (*env).CallNonvirtualDoubleMethodA(
-                    thisObj, thisClazz, methodToCall, params);
-            break;
-
-        case 'V':
-            (*env).CallNonvirtualVoidMethodA(
-                    thisObj, thisClazz, methodToCall, params);
-            break;
-
-        case 'J':
-            vmc->retVal->j = (*env).CallNonvirtualLongMethodA(
-                    thisObj, thisClazz, methodToCall, params);
-            break;
-
-        default:
-            LOG_E("error method's return type(%s)...", shorty);
-            JAVAException::throwRuntimeException("error type of field... cc");
-            break;
-    }
-
-#ifdef VM_DEBUG
-    StandardInterpret::debugInvokeMethod(vmc, methodToCall, shorty, *vmc->retVal, params);
-#endif
-}
-
-const jvalue *StandardInterpret::pushMethodParams(VmMethodContext *vmc, bool isStatic) {
-    u2 count = vmc->tmp->src1 >> 4u;
-    assert(count <= 5);
-    auto *vars = new jvalue[MAX(1, count)]();
-    u2 var_i = 0;
-    u2 param_i = 0;
-    if (!isStatic) {
-        vmc->tmp->val_2.l = vmc->getRegisterAsObject(vmc->tmp->dst & 0x0fu);
-        param_i++;
-        vmc->tmp->dst >>= 4u;
-    }
-    const char *shorty = vmc->method->dexFile->dexGetMethodShorty(vmc->tmp->val_1.u4);
-    LOG_D("method shorty: %s", shorty);
-    for (; param_i < MIN(count, 4); param_i++, var_i++, vmc->tmp->dst >>= 4u) {
-        LOG_D("param[%d]-type: %c", var_i, shorty[var_i + 1]);
-        switch (shorty[var_i + 1]) {
-            case 'D':
-            case 'J':
-                vars[var_i].j = vmc->getRegisterWide(vmc->tmp->dst & 0x0fu);
-                vmc->tmp->dst >>= 4u;
-                param_i++;
-                break;
-
-            case 'L':
-                vars[var_i].l = vmc->getRegisterAsObject(vmc->tmp->dst & 0x0fu);
-                break;
-
-            default:
-                vars[var_i].i = vmc->getRegister(vmc->tmp->dst & 0x0fu);
-                break;
-        }
-    }
-    if (param_i == 4 && count == 5) {
-        LOG_D("param[%d]-type: %c", var_i, shorty[var_i + 1]);
-        switch (shorty[var_i + 1]) {
-            case 'L':
-                vars[var_i].l = vmc->getRegisterAsObject(vmc->tmp->src1 & 0x0fu);
-                break;
-
-            default:
-                vars[var_i].i = vmc->getRegister(vmc->tmp->src1 & 0x0fu);
-                break;
-        }
-    }
-    return vars;
-}
-
-const jvalue *StandardInterpret::pushMethodParamsRange(VmMethodContext *vmc, bool isStatic) {
-    u2 count = vmc->tmp->src1;
-    auto *vars = new jvalue[MAX(1, count)]();
-    u2 var_i = 0;
-    u2 param_i = 0;
-    if (!isStatic) {
-        vmc->tmp->val_2.l = vmc->getRegisterAsObject(vmc->tmp->dst & 0x0fu);
-        param_i++;
-    }
-    const char *shorty = vmc->method->dexFile->dexGetMethodShorty(vmc->tmp->val_1.u4);
-    LOG_D("method shorty: %s", shorty);
-    for (; param_i < count; param_i++, var_i++) {
-        LOG_D("param[%d]-type: %c", var_i, shorty[var_i + 1]);
-        switch (shorty[var_i + 1]) {
-            case 'D':
-            case 'J':
-                vars[var_i].j = vmc->getRegisterLong(vmc->tmp->dst & 0x0fu);
-                param_i++;
-                break;
-
-            case 'L':
-                vars[var_i].l = vmc->getRegisterAsObject(vmc->tmp->dst & 0x0fu);
-                break;
-
-            default:
-                vars[var_i].i = vmc->getRegisterInt(vmc->tmp->dst & 0x0fu);
-                break;
-        }
-    }
-    return vars;
-}
-
-#ifdef VM_DEBUG
+#if defined(VM_DEBUG)
 
 void
 StandardInterpret::debugInvokeMethod(VmMethodContext *vmc, jmethodID methodCalled,
@@ -1115,7 +821,7 @@ void ST_CH_Const_Class::run(VmMethodContext *vmc) {
     LOG_D("|const-class v%u class@%u", vmc->tmp->dst, vmc->tmp->val_1.u4);
     vmc->tmp->val_1.l = vmc->method->resolveClass(vmc->tmp->val_1.u4);
     if (vmc->tmp->val_1.l == nullptr) {
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwJavaException(vmc);
         return;
     }
     vmc->setRegisterAsObject(vmc->tmp->dst, vmc->tmp->val_1.l);
@@ -1127,8 +833,7 @@ void ST_CH_Monitor_Enter::run(VmMethodContext *vmc) {
     LOG_D("|monitor-enter v%u %s(%p)",
           vmc->tmp->src1, kSpacing + 6, vmc->getRegisterAsObject(vmc->tmp->src1));
     vmc->tmp->val_1.l = vmc->getRegisterAsObject(vmc->tmp->src1);
-    if (!JAVAException::checkForNull(vmc->tmp->val_1.l)) {
-        JAVAException::throwJavaException(vmc);
+    if (!JavaException::checkForNull(vmc, vmc->tmp->val_1.l)) {
         return;
     }
     (*VM_CONTEXT::env).MonitorEnter(vmc->tmp->val_1.l);
@@ -1149,12 +854,11 @@ void ST_CH_Monitor_Exit::run(VmMethodContext *vmc) {
      * 抛出的任意异常，同时仍尽力维持适当的监视锁安全机制。
      */
     vmc->pc_off(1);
-    if (!JAVAException::checkForNull(vmc->tmp->val_1.l)) {
-        JAVAException::throwJavaException(vmc);
+    if (!JavaException::checkForNull(vmc, vmc->tmp->val_1.l)) {
         return;
     }
     if (!(*VM_CONTEXT::env).MonitorExit(vmc->tmp->val_1.l)) {
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwJavaException(vmc);
         return;
     }
 }
@@ -1167,13 +871,13 @@ void ST_CH_Check_Cast::run(VmMethodContext *vmc) {
     if (vmc->tmp->val_1.l) {
         vmc->tmp->val_2.lc = vmc->method->resolveClass(vmc->tmp->val_2.u4);
         if (vmc->tmp->val_2.lc == nullptr) {
-            JAVAException::throwJavaException(vmc);
+            JavaException::throwJavaException(vmc);
             return;
         }
         if (!(*VM_CONTEXT::env).IsInstanceOf(vmc->tmp->val_1.l, vmc->tmp->val_2.lc)) {
-            JAVAException::throwClassCastException(
+            JavaException::throwClassCastException(
+                    vmc,
                     (*VM_CONTEXT::env).GetObjectClass(vmc->tmp->val_1.l), vmc->tmp->val_2.lc);
-            JAVAException::throwJavaException(vmc);
             return;
         }
 //        (*VM_CONTEXT::env).DeleteLocalRef(clazz);
@@ -1193,7 +897,7 @@ void ST_CH_Instance_Of::run(VmMethodContext *vmc) {
     } else {
         vmc->tmp->val_2.lc = vmc->method->resolveClass(vmc->tmp->val_2.u4);
         if (vmc->tmp->val_2.lc == nullptr) {
-            JAVAException::throwJavaException(vmc);
+            JavaException::throwJavaException(vmc);
             return;
         }
         vmc->tmp->val_1.z = (*VM_CONTEXT::env).IsInstanceOf(vmc->tmp->val_1.l, vmc->tmp->val_2.lc);
@@ -1209,8 +913,7 @@ void ST_CH_Array_Length::run(VmMethodContext *vmc) {
     vmc->tmp->val_1.l = vmc->getRegisterAsObject(vmc->tmp->src1);
     LOG_D("|array-length v%u,v%u  (%p)",
           vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->val_1.l);
-    if (!JAVAException::checkForNull(vmc->tmp->val_1.l)) {
-        JAVAException::throwJavaException(vmc);
+    if (!JavaException::checkForNull(vmc, vmc->tmp->val_1.l)) {
         return;
     }
     vmc->tmp->val_1.u4 = (u4) (*VM_CONTEXT::env).GetArrayLength(vmc->tmp->val_1.la);
@@ -1224,12 +927,11 @@ void ST_CH_New_Instance::run(VmMethodContext *vmc) {
     LOG_D("|new-instance v%u,class@%u", vmc->tmp->dst, vmc->tmp->val_1.u4);
     vmc->tmp->val_1.l = vmc->method->resolveClass(vmc->tmp->val_1.u4);
     if (vmc->tmp->val_1.l == nullptr) {
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwJavaException(vmc);
         return;
     }
     vmc->tmp->val_2.l = (*VM_CONTEXT::env).AllocObject(vmc->tmp->val_1.lc);
-    if (!JAVAException::checkForNull(vmc->tmp->val_2.l)) {
-        JAVAException::throwJavaException(vmc);
+    if (!JavaException::checkForNull(vmc, vmc->tmp->val_2.l)) {
         return;
     }
     vmc->setRegisterAsObject(vmc->tmp->dst, vmc->tmp->val_2.l);
@@ -1245,14 +947,12 @@ void ST_CH_New_Array::run(VmMethodContext *vmc) {
           vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->val_1.u4, vmc->getRegisterInt(vmc->tmp->src1));
     vmc->tmp->val_2.s4 = vmc->getRegisterInt(vmc->tmp->src1);
     if (vmc->tmp->val_2.s4 < 0) {
-        JAVAException::throwNegativeArraySizeException(vmc->tmp->val_2.s4);
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwNegativeArraySizeException(vmc, vmc->tmp->val_2.s4);
         return;
     }
     vmc->tmp->val_1.la = vmc->method->allocArray(vmc->tmp->val_2.s4, vmc->tmp->val_1.u4);
     if (vmc->tmp->val_1.la == nullptr) {
-        JAVAException::throwRuntimeException("error type of field... cc");
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwRuntimeException(vmc, "error type of field... cc");
         return;
     }
     vmc->setRegisterAsObject(vmc->tmp->dst, vmc->tmp->val_1.l);
@@ -1288,15 +988,13 @@ void ST_CH_Fill_Array_Data::run(VmMethodContext *vmc) {
      * Total size is 4+(width * size + 1)/2 16-bit code units.
      */
     if (data[0] != kArrayDataSignature) {
-        JAVAException::throwInternalError("bad array data magic");
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwInternalError(vmc, "bad array data magic");
         return;
     }
     u4 size = data[2] | ((u4) data[3] << 16u);
     if (size > (*env).GetArrayLength(vmc->tmp->val_1.la)) {
-        JAVAException::throwArrayIndexOutOfBoundsException(
-                (*env).GetArrayLength(vmc->tmp->val_1.la), size);
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwArrayIndexOutOfBoundsException(
+                vmc, (*env).GetArrayLength(vmc->tmp->val_1.la), size);
         return;
     }
     const std::string desc = VmMethod::getClassDescriptorByJClass(
@@ -1336,8 +1034,7 @@ void ST_CH_Fill_Array_Data::run(VmMethodContext *vmc) {
 
         default:
             LOG_E("Unknown primitive type '%c'", desc[1]);
-            JAVAException::throwRuntimeException("error type of field... cc");
-            JAVAException::throwJavaException(vmc);
+            throw VMException("error type of field... cc");
             return;
     }
     vmc->pc_off(3);
@@ -1348,14 +1045,15 @@ void ST_CH_Throw::run(VmMethodContext *vmc) {
     LOG_D("throw v%u  (%p)",
           vmc->tmp->src1, vmc->getRegisterAsObject(vmc->tmp->src1));
     vmc->tmp->val_1.l = vmc->getRegisterAsObject(vmc->tmp->src1);
-    if (!JAVAException::checkForNull(vmc->tmp->val_1.l)) {
+    if (!JavaException::checkForNull(vmc, vmc->tmp->val_1.l)) {
         /* will throw a null pointer exception */
         LOG_E("Bad exception");
+        return;
     } else {
         /* use the requested exception */
         (*VM_CONTEXT::env).Throw(vmc->tmp->val_1.lt);
+        JavaException::throwJavaException(vmc);
     }
-    JAVAException::throwJavaException(vmc);
     // no pc_off.
 }
 
@@ -1402,7 +1100,8 @@ void ST_CH_Packed_Switch::run(VmMethodContext *vmc) {
     LOG_D("|packed-switch v%u +%d", vmc->tmp->src1, vmc->tmp->val_1.s4);
     const u2 *data = vmc->arrayData(vmc->tmp->val_1.s4);   // offset in 16-bit units
     vmc->tmp->val_1.u4 = vmc->getRegister(vmc->tmp->src1);
-    vmc->tmp->val_1.s4 = StandardInterpret::handlePackedSwitch(data, vmc->tmp->val_1.u4);
+    vmc->tmp->val_1.s4 = StandardInterpret::handlePackedSwitch(
+            vmc, data, vmc->tmp->val_1.u4);
     LOG_D("> branch taken (%d)", vmc->tmp->val_1.s4);
     vmc->goto_off(vmc->tmp->val_1.s4);
     // no pc_off
@@ -1414,7 +1113,8 @@ void ST_CH_Sparse_Switch::run(VmMethodContext *vmc) {
     LOG_D("|packed-switch v%u +%d", vmc->tmp->src1, vmc->tmp->val_1.s4);
     const u2 *data = vmc->arrayData(vmc->tmp->val_1.s4);   // offset in 16-bit units
     vmc->tmp->val_1.u4 = vmc->getRegister(vmc->tmp->src1);
-    vmc->tmp->val_1.s4 = StandardInterpret::handleSparseSwitch(data, vmc->tmp->val_1.u4);
+    vmc->tmp->val_1.s4 = StandardInterpret::handleSparseSwitch(
+            vmc, data, vmc->tmp->val_1.u4);
     LOG_D("> branch taken (%d)", vmc->tmp->val_1.s4);
     vmc->goto_off(vmc->tmp->val_1.s4);
     // no pc_off
@@ -1720,15 +1420,13 @@ void ST_CH_Aget::run(VmMethodContext *vmc) {
     LOG_D("aget%s v%u,v%u,v%u",
           "-normal", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->src2);
     vmc->tmp->val_1.lia = (jintArray) vmc->getRegisterAsObject(vmc->tmp->src1);
-    if (!JAVAException::checkForNull(vmc->tmp->val_1.lia)) {
-        JAVAException::throwJavaException(vmc);
+    if (!JavaException::checkForNull(vmc, vmc->tmp->val_1.lia)) {
         return;
     }
     vmc->tmp->val_2.u4 = (*VM_CONTEXT::env).GetArrayLength(vmc->tmp->val_1.lia);
     if (vmc->tmp->val_2.u4 <= vmc->getRegister(vmc->tmp->src2)) {
-        JAVAException::throwArrayIndexOutOfBoundsException(
-                vmc->tmp->val_2.u4, vmc->getRegister(vmc->tmp->src2));
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwArrayIndexOutOfBoundsException(
+                vmc, vmc->tmp->val_2.u4, vmc->getRegister(vmc->tmp->src2));
         return;
     }
     u8 buf[1];
@@ -1749,15 +1447,13 @@ void ST_CH_Aget_Wide::run(VmMethodContext *vmc) {
     LOG_D("aget%s v%u,v%u,v%u",
           "-wide", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->src2);
     vmc->tmp->val_1.lja = (jlongArray) vmc->getRegisterAsObject(vmc->tmp->src1);
-    if (!JAVAException::checkForNull(vmc->tmp->val_1.lja)) {
-        JAVAException::throwJavaException(vmc);
+    if (!JavaException::checkForNull(vmc, vmc->tmp->val_1.lja)) {
         return;
     }
     vmc->tmp->val_2.u4 = (*VM_CONTEXT::env).GetArrayLength(vmc->tmp->val_1.lja);
     if (vmc->tmp->val_2.u4 <= vmc->getRegister(vmc->tmp->src2)) {
-        JAVAException::throwArrayIndexOutOfBoundsException(
-                vmc->tmp->val_2.u4, vmc->getRegister(vmc->tmp->src2));
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwArrayIndexOutOfBoundsException(
+                vmc, vmc->tmp->val_2.u4, vmc->getRegister(vmc->tmp->src2));
         return;
     }
     u8 buf[1];
@@ -1778,15 +1474,13 @@ void ST_CH_Aget_Object::run(VmMethodContext *vmc) {
     LOG_D("|aget%s v%u,v%u,v%u",
           "-object", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->src2);
     vmc->tmp->val_1.lla = (jobjectArray) vmc->getRegisterAsObject(vmc->tmp->src1);
-    if (!JAVAException::checkForNull(vmc->tmp->val_1.lla)) {
-        JAVAException::throwJavaException(vmc);
+    if (!JavaException::checkForNull(vmc, vmc->tmp->val_1.lla)) {
         return;
     }
     vmc->tmp->val_2.u4 = (*VM_CONTEXT::env).GetArrayLength(vmc->tmp->val_1.lla);
     if (vmc->tmp->val_2.u4 <= vmc->getRegister(vmc->tmp->src2)) {
-        JAVAException::throwArrayIndexOutOfBoundsException(
-                vmc->tmp->val_2.u4, vmc->getRegister(vmc->tmp->src2));
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwArrayIndexOutOfBoundsException(
+                vmc, vmc->tmp->val_2.u4, vmc->getRegister(vmc->tmp->src2));
         return;
     }
     vmc->tmp->val_2.l = (*VM_CONTEXT::env).GetObjectArrayElement(
@@ -1806,15 +1500,13 @@ void ST_CH_Aget_Boolean::run(VmMethodContext *vmc) {
     LOG_D("aget%s v%u,v%u,v%u",
           "-boolean", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->src2);
     vmc->tmp->val_1.lza = (jbooleanArray) vmc->getRegisterAsObject(vmc->tmp->src1);
-    if (!JAVAException::checkForNull(vmc->tmp->val_1.lza)) {
-        JAVAException::throwJavaException(vmc);
+    if (!JavaException::checkForNull(vmc, vmc->tmp->val_1.lza)) {
         return;
     }
     vmc->tmp->val_2.u4 = (*VM_CONTEXT::env).GetArrayLength(vmc->tmp->val_1.lza);
     if (vmc->tmp->val_2.u4 <= vmc->getRegister(vmc->tmp->src2)) {
-        JAVAException::throwArrayIndexOutOfBoundsException(
-                vmc->tmp->val_2.u4, vmc->getRegister(vmc->tmp->src2));
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwArrayIndexOutOfBoundsException(
+                vmc, vmc->tmp->val_2.u4, vmc->getRegister(vmc->tmp->src2));
         return;
     }
     u8 buf[1];
@@ -1835,15 +1527,13 @@ void ST_CH_Aget_Byte::run(VmMethodContext *vmc) {
     LOG_D("aget%s v%u,v%u,v%u",
           "-byte", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->src2);
     vmc->tmp->val_1.lba = (jbyteArray) vmc->getRegisterAsObject(vmc->tmp->src1);
-    if (!JAVAException::checkForNull(vmc->tmp->val_1.lba)) {
-        JAVAException::throwJavaException(vmc);
+    if (!JavaException::checkForNull(vmc, vmc->tmp->val_1.lba)) {
         return;
     }
     vmc->tmp->val_2.u4 = (*VM_CONTEXT::env).GetArrayLength(vmc->tmp->val_1.lba);
     if (vmc->tmp->val_2.u4 <= vmc->getRegister(vmc->tmp->src2)) {
-        JAVAException::throwArrayIndexOutOfBoundsException(
-                vmc->tmp->val_2.u4, vmc->getRegister(vmc->tmp->src2));
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwArrayIndexOutOfBoundsException(
+                vmc, vmc->tmp->val_2.u4, vmc->getRegister(vmc->tmp->src2));
         return;
     }
     u8 buf[1];
@@ -1864,15 +1554,13 @@ void ST_CH_Aget_Char::run(VmMethodContext *vmc) {
     LOG_D("aget%s v%u,v%u,v%u",
           "-char", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->src2);
     vmc->tmp->val_1.lca = (jcharArray) vmc->getRegisterAsObject(vmc->tmp->src1);
-    if (!JAVAException::checkForNull(vmc->tmp->val_1.lca)) {
-        JAVAException::throwJavaException(vmc);
+    if (!JavaException::checkForNull(vmc, vmc->tmp->val_1.lca)) {
         return;
     }
     vmc->tmp->val_2.u4 = (*VM_CONTEXT::env).GetArrayLength(vmc->tmp->val_1.lca);
     if (vmc->tmp->val_2.u4 <= vmc->getRegister(vmc->tmp->src2)) {
-        JAVAException::throwArrayIndexOutOfBoundsException(
-                vmc->tmp->val_2.u4, vmc->getRegister(vmc->tmp->src2));
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwArrayIndexOutOfBoundsException(
+                vmc, vmc->tmp->val_2.u4, vmc->getRegister(vmc->tmp->src2));
         return;
     }
     u8 buf[1];
@@ -1893,15 +1581,13 @@ void ST_CH_Aget_Short::run(VmMethodContext *vmc) {
     LOG_D("aget%s v%u,v%u,v%u",
           "-short", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->src2);
     vmc->tmp->val_1.lsa = (jshortArray) vmc->getRegisterAsObject(vmc->tmp->src1);
-    if (!JAVAException::checkForNull(vmc->tmp->val_1.lsa)) {
-        JAVAException::throwJavaException(vmc);
+    if (!JavaException::checkForNull(vmc, vmc->tmp->val_1.lsa)) {
         return;
     }
     vmc->tmp->val_2.u4 = (*VM_CONTEXT::env).GetArrayLength(vmc->tmp->val_1.lsa);
     if (vmc->tmp->val_2.u4 <= vmc->getRegister(vmc->tmp->src2)) {
-        JAVAException::throwArrayIndexOutOfBoundsException(
-                vmc->tmp->val_2.u4, vmc->getRegister(vmc->tmp->src2));
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwArrayIndexOutOfBoundsException(
+                vmc, vmc->tmp->val_2.u4, vmc->getRegister(vmc->tmp->src2));
         return;
     }
     u8 buf[1];
@@ -1922,15 +1608,13 @@ void ST_CH_Aput::run(VmMethodContext *vmc) {
     LOG_D("aget%s v%u,v%u,v%u",
           "-normal", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->src2);
     vmc->tmp->val_1.lia = (jintArray) vmc->getRegisterAsObject(vmc->tmp->src1);
-    if (!JAVAException::checkForNull(vmc->tmp->val_1.lia)) {
-        JAVAException::throwJavaException(vmc);
+    if (!JavaException::checkForNull(vmc, vmc->tmp->val_1.lia)) {
         return;
     }
     vmc->tmp->val_2.u4 = (*VM_CONTEXT::env).GetArrayLength(vmc->tmp->val_1.lia);
     if (vmc->tmp->val_2.u4 <= vmc->getRegister(vmc->tmp->src2)) {
-        JAVAException::throwArrayIndexOutOfBoundsException(
-                vmc->tmp->val_2.u4, vmc->getRegister(vmc->tmp->src2));
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwArrayIndexOutOfBoundsException(
+                vmc, vmc->tmp->val_2.u4, vmc->getRegister(vmc->tmp->src2));
         return;
     }
     LOG_D("+ APUT[%u]=%d",
@@ -1951,15 +1635,13 @@ void ST_CH_Aput_Wide::run(VmMethodContext *vmc) {
     LOG_D("aget%s v%u,v%u,v%u",
           "-wide", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->src2);
     vmc->tmp->val_1.lja = (jlongArray) vmc->getRegisterAsObject(vmc->tmp->src1);
-    if (!JAVAException::checkForNull(vmc->tmp->val_1.lja)) {
-        JAVAException::throwJavaException(vmc);
+    if (!JavaException::checkForNull(vmc, vmc->tmp->val_1.lja)) {
         return;
     }
     vmc->tmp->val_2.u4 = (*VM_CONTEXT::env).GetArrayLength(vmc->tmp->val_1.lja);
     if (vmc->tmp->val_2.u4 <= vmc->getRegister(vmc->tmp->src2)) {
-        JAVAException::throwArrayIndexOutOfBoundsException(
-                vmc->tmp->val_2.u4, vmc->getRegister(vmc->tmp->src2));
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwArrayIndexOutOfBoundsException(
+                vmc, vmc->tmp->val_2.u4, vmc->getRegister(vmc->tmp->src2));
         return;
     }
     LOG_D("+ APUT[%u]=%ld",
@@ -1980,15 +1662,13 @@ void ST_CH_Aput_Object::run(VmMethodContext *vmc) {
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;  /* array ptr */
     LOG_D("aget%s v%u,v%u,v%u", "-object", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->src2);
     vmc->tmp->val_1.lla = (jobjectArray) vmc->getRegisterAsObject(vmc->tmp->src1);
-    if (!JAVAException::checkForNull(vmc->tmp->val_1.lla)) {
-        JAVAException::throwJavaException(vmc);
+    if (!JavaException::checkForNull(vmc, vmc->tmp->val_1.lla)) {
         return;
     }
     vmc->tmp->val_2.u4 = (*VM_CONTEXT::env).GetArrayLength(vmc->tmp->val_1.lla);
     if (vmc->tmp->val_2.u4 <= vmc->getRegister(vmc->tmp->src2)) {
-        JAVAException::throwArrayIndexOutOfBoundsException(
-                vmc->tmp->val_2.u4, vmc->getRegister(vmc->tmp->src2));
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwArrayIndexOutOfBoundsException(
+                vmc, vmc->tmp->val_2.u4, vmc->getRegister(vmc->tmp->src2));
         return;
     }
     LOG_D("+ APUT[%u]=%p", vmc->getRegister(vmc->tmp->src2),
@@ -2007,15 +1687,13 @@ void ST_CH_Aput_Boolean::run(VmMethodContext *vmc) {
     LOG_D("aget%s v%u,v%u,v%u",
           "-boolean", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->src2);
     vmc->tmp->val_1.lza = (jbooleanArray) vmc->getRegisterAsObject(vmc->tmp->src1);
-    if (!JAVAException::checkForNull(vmc->tmp->val_1.lza)) {
-        JAVAException::throwJavaException(vmc);
+    if (!JavaException::checkForNull(vmc, vmc->tmp->val_1.lza)) {
         return;
     }
     vmc->tmp->val_2.u4 = (*VM_CONTEXT::env).GetArrayLength(vmc->tmp->val_1.lza);
     if (vmc->tmp->val_2.u4 <= vmc->getRegister(vmc->tmp->src2)) {
-        JAVAException::throwArrayIndexOutOfBoundsException(
-                vmc->tmp->val_2.u4, vmc->getRegister(vmc->tmp->src2));
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwArrayIndexOutOfBoundsException(
+                vmc, vmc->tmp->val_2.u4, vmc->getRegister(vmc->tmp->src2));
         return;
     }
     LOG_D("+ APUT[%u]=%u",
@@ -2036,15 +1714,13 @@ void ST_CH_Aput_Byte::run(VmMethodContext *vmc) {
     LOG_D("aget%s v%u,v%u,v%u",
           "-byte", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->src2);
     vmc->tmp->val_1.lba = (jbyteArray) vmc->getRegisterAsObject(vmc->tmp->src1);
-    if (!JAVAException::checkForNull(vmc->tmp->val_1.lba)) {
-        JAVAException::throwJavaException(vmc);
+    if (!JavaException::checkForNull(vmc, vmc->tmp->val_1.lba)) {
         return;
     }
     vmc->tmp->val_2.u4 = (*VM_CONTEXT::env).GetArrayLength(vmc->tmp->val_1.lba);
     if (vmc->tmp->val_2.u4 <= vmc->getRegister(vmc->tmp->src2)) {
-        JAVAException::throwArrayIndexOutOfBoundsException(
-                vmc->tmp->val_2.u4, vmc->getRegister(vmc->tmp->src2));
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwArrayIndexOutOfBoundsException(
+                vmc, vmc->tmp->val_2.u4, vmc->getRegister(vmc->tmp->src2));
         return;
     }
     LOG_D("+ APUT[%u]=%u",
@@ -2065,15 +1741,13 @@ void ST_CH_Aput_Char::run(VmMethodContext *vmc) {
     LOG_D("aget%s v%u,v%u,v%u",
           "-char", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->src2);
     vmc->tmp->val_1.lca = (jcharArray) vmc->getRegisterAsObject(vmc->tmp->src1);
-    if (!JAVAException::checkForNull(vmc->tmp->val_1.lca)) {
-        JAVAException::throwJavaException(vmc);
+    if (!JavaException::checkForNull(vmc, vmc->tmp->val_1.lca)) {
         return;
     }
     vmc->tmp->val_2.u4 = (*VM_CONTEXT::env).GetArrayLength(vmc->tmp->val_1.lca);
     if (vmc->tmp->val_2.u4 <= vmc->getRegister(vmc->tmp->src2)) {
-        JAVAException::throwArrayIndexOutOfBoundsException(
-                vmc->tmp->val_2.u4, vmc->getRegister(vmc->tmp->src2));
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwArrayIndexOutOfBoundsException(
+                vmc, vmc->tmp->val_2.u4, vmc->getRegister(vmc->tmp->src2));
         return;
     }
     LOG_D("+ APUT[%u]=%u",
@@ -2094,15 +1768,13 @@ void ST_CH_Aput_Short::run(VmMethodContext *vmc) {
     LOG_D("aget%s v%u,v%u,v%u",
           "-short", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->src2);
     vmc->tmp->val_1.lsa = (jshortArray) vmc->getRegisterAsObject(vmc->tmp->src1);
-    if (!JAVAException::checkForNull(vmc->tmp->val_1.lsa)) {
-        JAVAException::throwJavaException(vmc);
+    if (!JavaException::checkForNull(vmc, vmc->tmp->val_1.lsa)) {
         return;
     }
     vmc->tmp->val_2.u4 = (*VM_CONTEXT::env).GetArrayLength(vmc->tmp->val_1.lsa);
     if (vmc->tmp->val_2.u4 <= vmc->getRegister(vmc->tmp->src2)) {
-        JAVAException::throwArrayIndexOutOfBoundsException(
-                vmc->tmp->val_2.u4, vmc->getRegister(vmc->tmp->src2));
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwArrayIndexOutOfBoundsException(
+                vmc, vmc->tmp->val_2.u4, vmc->getRegister(vmc->tmp->src2));
         return;
     }
     LOG_D("+ APUT[%u]=%u",
@@ -2122,13 +1794,12 @@ void ST_CH_Iget::run(VmMethodContext *vmc) {
     LOG_D("|iget%s v%u,v%u,field@%u",
           "-normal", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->val_1.u4);
     vmc->tmp->val_2.l = vmc->getRegisterAsObject(vmc->tmp->src1);
-    if (!JAVAException::checkForNull(vmc->tmp->val_2.l)) {
-        JAVAException::throwJavaException(vmc);
+    if (!JavaException::checkForNull(vmc, vmc->tmp->val_2.l)) {
         return;
     }
     RegValue val{};
     if (!vmc->method->resolveField(vmc->tmp->val_1.u4, vmc->tmp->val_2.l, &val)) {
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwJavaException(vmc);
         return;
     }
     vmc->setRegisterInt(vmc->tmp->dst, val.i);
@@ -2145,13 +1816,12 @@ void ST_CH_Iget_Wide::run(VmMethodContext *vmc) {
     LOG_D("|iget%s v%u,v%u,field@%u",
           "-wide", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->val_1.u4);
     vmc->tmp->val_2.l = vmc->getRegisterAsObject(vmc->tmp->src1);
-    if (!JAVAException::checkForNull(vmc->tmp->val_2.l)) {
-        JAVAException::throwJavaException(vmc);
+    if (!JavaException::checkForNull(vmc, vmc->tmp->val_2.l)) {
         return;
     }
     RegValue val{};
     if (!vmc->method->resolveField(vmc->tmp->val_1.u4, vmc->tmp->val_2.l, &val)) {
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwJavaException(vmc);
         return;
     }
     vmc->setRegisterLong(vmc->tmp->dst, val.j);
@@ -2168,13 +1838,12 @@ void ST_CH_Iget_Object::run(VmMethodContext *vmc) {
     LOG_D("|iget%s v%u,v%u,field@%u",
           "-object", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->val_1.u4);
     vmc->tmp->val_2.l = vmc->getRegisterAsObject(vmc->tmp->src1);
-    if (!JAVAException::checkForNull(vmc->tmp->val_2.l)) {
-        JAVAException::throwJavaException(vmc);
+    if (!JavaException::checkForNull(vmc, vmc->tmp->val_2.l)) {
         return;
     }
     RegValue val{};
     if (!vmc->method->resolveField(vmc->tmp->val_1.u4, vmc->tmp->val_2.l, &val)) {
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwJavaException(vmc);
         return;
     }
     vmc->setRegisterAsObject(vmc->tmp->dst, val.l);
@@ -2191,13 +1860,12 @@ void ST_CH_Iget_Boolean::run(VmMethodContext *vmc) {
     LOG_D("|iget%s v%u,v%u,field@%u",
           "-bool", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->val_1.u4);
     vmc->tmp->val_2.l = vmc->getRegisterAsObject(vmc->tmp->src1);
-    if (!JAVAException::checkForNull(vmc->tmp->val_2.l)) {
-        JAVAException::throwJavaException(vmc);
+    if (!JavaException::checkForNull(vmc, vmc->tmp->val_2.l)) {
         return;
     }
     RegValue val{};
     if (!vmc->method->resolveField(vmc->tmp->val_1.u4, vmc->tmp->val_2.l, &val)) {
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwJavaException(vmc);
         return;
     }
     vmc->setRegister(vmc->tmp->dst, val.z);
@@ -2214,13 +1882,12 @@ void ST_CH_Iget_Byte::run(VmMethodContext *vmc) {
     LOG_D("|iget%s v%u,v%u,field@%u",
           "-byte", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->val_1.u4);
     vmc->tmp->val_2.l = vmc->getRegisterAsObject(vmc->tmp->src1);
-    if (!JAVAException::checkForNull(vmc->tmp->val_2.l)) {
-        JAVAException::throwJavaException(vmc);
+    if (!JavaException::checkForNull(vmc, vmc->tmp->val_2.l)) {
         return;
     }
     RegValue val{};
     if (!vmc->method->resolveField(vmc->tmp->val_1.u4, vmc->tmp->val_2.l, &val)) {
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwJavaException(vmc);
         return;
     }
     vmc->setRegister(vmc->tmp->dst, val.b);
@@ -2237,13 +1904,12 @@ void ST_CH_Iget_Char::run(VmMethodContext *vmc) {
     LOG_D("|iget%s v%u,v%u,field@%u",
           "-char", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->val_1.u4);
     vmc->tmp->val_2.l = vmc->getRegisterAsObject(vmc->tmp->src1);
-    if (!JAVAException::checkForNull(vmc->tmp->val_2.l)) {
-        JAVAException::throwJavaException(vmc);
+    if (!JavaException::checkForNull(vmc, vmc->tmp->val_2.l)) {
         return;
     }
     RegValue val{};
     if (!vmc->method->resolveField(vmc->tmp->val_1.u4, vmc->tmp->val_2.l, &val)) {
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwJavaException(vmc);
         return;
     }
     vmc->setRegister(vmc->tmp->dst, val.c);
@@ -2260,13 +1926,12 @@ void ST_CH_Iget_Short::run(VmMethodContext *vmc) {
     LOG_D("|iget%s v%u,v%u,field@%u",
           "-short", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->val_1.u4);
     vmc->tmp->val_2.l = vmc->getRegisterAsObject(vmc->tmp->src1);
-    if (!JAVAException::checkForNull(vmc->tmp->val_2.l)) {
-        JAVAException::throwJavaException(vmc);
+    if (!JavaException::checkForNull(vmc, vmc->tmp->val_2.l)) {
         return;
     }
     RegValue val{};
     if (!vmc->method->resolveField(vmc->tmp->val_1.u4, vmc->tmp->val_2.l, &val)) {
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwJavaException(vmc);
         return;
     }
     vmc->setRegister(vmc->tmp->dst, val.s);
@@ -2283,14 +1948,13 @@ void ST_CH_Iput::run(VmMethodContext *vmc) {
     LOG_D("|iput%s v%u,v%u,field@%u",
           "-normal", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->val_1.u4);
     vmc->tmp->val_2.l = vmc->getRegisterAsObject(vmc->tmp->src1);
-    if (!JAVAException::checkForNull(vmc->tmp->val_2.l)) {
-        JAVAException::throwJavaException(vmc);
+    if (!JavaException::checkForNull(vmc, vmc->tmp->val_2.l)) {
         return;
     }
     RegValue val{};
     val.i = vmc->getRegisterInt(vmc->tmp->dst);
     if (!vmc->method->resolveSetField(vmc->tmp->val_1.u4, vmc->tmp->val_2.l, &val)) {
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwJavaException(vmc);
         return;
     }
     LOG_D("+ IPUT '%s'=%u",
@@ -2306,14 +1970,13 @@ void ST_CH_Iput_Wide::run(VmMethodContext *vmc) {
     LOG_D("|iput%s v%u,v%u,field@%u",
           "-wide", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->val_1.u4);
     vmc->tmp->val_2.l = vmc->getRegisterAsObject(vmc->tmp->src1);
-    if (!JAVAException::checkForNull(vmc->tmp->val_2.l)) {
-        JAVAException::throwJavaException(vmc);
+    if (!JavaException::checkForNull(vmc, vmc->tmp->val_2.l)) {
         return;
     }
     RegValue val{};
     val.j = vmc->getRegisterLong(vmc->tmp->dst);
     if (!vmc->method->resolveSetField(vmc->tmp->val_1.u4, vmc->tmp->val_2.l, &val)) {
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwJavaException(vmc);
         return;
     }
     LOG_D("+ IPUT '%s'=%ld",
@@ -2329,14 +1992,13 @@ void ST_CH_Iput_Object::run(VmMethodContext *vmc) {
     LOG_D("|iput%s v%u,v%u,field@%u",
           "-object", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->val_1.u4);
     vmc->tmp->val_2.l = vmc->getRegisterAsObject(vmc->tmp->src1);
-    if (!JAVAException::checkForNull(vmc->tmp->val_2.l)) {
-        JAVAException::throwJavaException(vmc);
+    if (!JavaException::checkForNull(vmc, vmc->tmp->val_2.l)) {
         return;
     }
     RegValue val{};
     val.l = vmc->getRegisterAsObject(vmc->tmp->dst);
     if (!vmc->method->resolveSetField(vmc->tmp->val_1.u4, vmc->tmp->val_2.l, &val)) {
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwJavaException(vmc);
         return;
     }
     LOG_D("+ IPUT '%s'=%p",
@@ -2352,14 +2014,13 @@ void ST_CH_Iput_Boolean::run(VmMethodContext *vmc) {
     LOG_D("|iput%s v%u,v%u,field@%u",
           "-bool", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->val_1.u4);
     vmc->tmp->val_2.l = vmc->getRegisterAsObject(vmc->tmp->src1);
-    if (!JAVAException::checkForNull(vmc->tmp->val_2.l)) {
-        JAVAException::throwJavaException(vmc);
+    if (!JavaException::checkForNull(vmc, vmc->tmp->val_2.l)) {
         return;
     }
     RegValue val{};
     val.z = vmc->getRegister(vmc->tmp->dst);
     if (!vmc->method->resolveSetField(vmc->tmp->val_1.u4, vmc->tmp->val_2.l, &val)) {
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwJavaException(vmc);
         return;
     }
     LOG_D("+ IPUT '%s'=%u",
@@ -2375,14 +2036,13 @@ void ST_CH_Iput_Byte::run(VmMethodContext *vmc) {
     LOG_D("|iput%s v%u,v%u,field@%u",
           "-byte", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->val_1.u4);
     vmc->tmp->val_2.l = vmc->getRegisterAsObject(vmc->tmp->src1);
-    if (!JAVAException::checkForNull(vmc->tmp->val_2.l)) {
-        JAVAException::throwJavaException(vmc);
+    if (!JavaException::checkForNull(vmc, vmc->tmp->val_2.l)) {
         return;
     }
     RegValue val{};
     val.b = vmc->getRegister(vmc->tmp->dst);
     if (!vmc->method->resolveSetField(vmc->tmp->val_1.u4, vmc->tmp->val_2.l, &val)) {
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwJavaException(vmc);
         return;
     }
     LOG_D("+ IPUT '%s'=%u",
@@ -2398,14 +2058,13 @@ void ST_CH_Iput_Char::run(VmMethodContext *vmc) {
     LOG_D("|iput%s v%u,v%u,field@%u",
           "-char", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->val_1.u4);
     vmc->tmp->val_2.l = vmc->getRegisterAsObject(vmc->tmp->src1);
-    if (!JAVAException::checkForNull(vmc->tmp->val_2.l)) {
-        JAVAException::throwJavaException(vmc);
+    if (!JavaException::checkForNull(vmc, vmc->tmp->val_2.l)) {
         return;
     }
     RegValue val{};
     val.c = vmc->getRegister(vmc->tmp->dst);
     if (!vmc->method->resolveSetField(vmc->tmp->val_1.u4, vmc->tmp->val_2.l, &val)) {
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwJavaException(vmc);
         return;
     }
     LOG_D("+ IPUT '%s'=%u",
@@ -2421,14 +2080,13 @@ void ST_CH_Iput_Short::run(VmMethodContext *vmc) {
     LOG_D("|iput%s v%u,v%u,field@%u",
           "-short", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->val_1.u4);
     vmc->tmp->val_2.l = vmc->getRegisterAsObject(vmc->tmp->src1);
-    if (!JAVAException::checkForNull(vmc->tmp->val_2.l)) {
-        JAVAException::throwJavaException(vmc);
+    if (!JavaException::checkForNull(vmc, vmc->tmp->val_2.l)) {
         return;
     }
     RegValue val{};
     val.s = vmc->getRegister(vmc->tmp->dst);
     if (!vmc->method->resolveSetField(vmc->tmp->val_1.u4, vmc->tmp->val_2.l, &val)) {
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwJavaException(vmc);
         return;
     }
     LOG_D("+ IPUT '%s'=%u",
@@ -2444,7 +2102,7 @@ void ST_CH_Sget::run(VmMethodContext *vmc) {
           "-normal", vmc->tmp->dst, vmc->tmp->val_1.u4);
     RegValue val{};
     if (!vmc->method->resolveField(vmc->tmp->val_1.u4, nullptr, &val)) {
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwJavaException(vmc);
         return;
     }
     vmc->setRegisterInt(vmc->tmp->dst, val.i);
@@ -2461,7 +2119,7 @@ void ST_CH_Sget_Wide::run(VmMethodContext *vmc) {
           "-wide", vmc->tmp->dst, vmc->tmp->val_1.u4);
     RegValue val{};
     if (!vmc->method->resolveField(vmc->tmp->val_1.u4, nullptr, &val)) {
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwJavaException(vmc);
         return;
     }
     vmc->setRegisterLong(vmc->tmp->dst, val.j);
@@ -2478,7 +2136,7 @@ void ST_CH_Sget_Object::run(VmMethodContext *vmc) {
           "-object", vmc->tmp->dst, vmc->tmp->val_1.u4);
     RegValue val{};
     if (!vmc->method->resolveField(vmc->tmp->val_1.u4, nullptr, &val)) {
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwJavaException(vmc);
         return;
     }
     vmc->setRegisterAsObject(vmc->tmp->dst, val.l);
@@ -2495,7 +2153,7 @@ void ST_CH_Sget_Boolean::run(VmMethodContext *vmc) {
           "-boolean", vmc->tmp->dst, vmc->tmp->val_1.u4);
     RegValue val{};
     if (!vmc->method->resolveField(vmc->tmp->val_1.u4, nullptr, &val)) {
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwJavaException(vmc);
         return;
     }
     vmc->setRegister(vmc->tmp->dst, val.z);
@@ -2512,7 +2170,7 @@ void ST_CH_Sget_Byte::run(VmMethodContext *vmc) {
           "-byte", vmc->tmp->dst, vmc->tmp->val_1.u4);
     RegValue val{};
     if (!vmc->method->resolveField(vmc->tmp->val_1.u4, nullptr, &val)) {
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwJavaException(vmc);
         return;
     }
     vmc->setRegister(vmc->tmp->dst, val.b);
@@ -2529,7 +2187,7 @@ void ST_CH_Sget_Char::run(VmMethodContext *vmc) {
           "-char", vmc->tmp->dst, vmc->tmp->val_1.u4);
     RegValue val{};
     if (!vmc->method->resolveField(vmc->tmp->val_1.u4, nullptr, &val)) {
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwJavaException(vmc);
         return;
     }
     vmc->setRegister(vmc->tmp->dst, val.c);
@@ -2546,7 +2204,7 @@ void ST_CH_Sget_Short::run(VmMethodContext *vmc) {
           "-short", vmc->tmp->dst, vmc->tmp->val_1.u4);
     RegValue val{};
     if (!vmc->method->resolveField(vmc->tmp->val_1.u4, nullptr, &val)) {
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwJavaException(vmc);
         return;
     }
     vmc->setRegister(vmc->tmp->dst, val.s);
@@ -2564,7 +2222,7 @@ void ST_CH_Sput::run(VmMethodContext *vmc) {
     RegValue val{};
     val.i = vmc->getRegisterInt(vmc->tmp->dst);
     if (!vmc->method->resolveSetField(vmc->tmp->val_1.u4, nullptr, &val)) {
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwJavaException(vmc);
         return;
     }
     LOG_D("+ SPUT '%s'=%d",
@@ -2581,7 +2239,7 @@ void ST_CH_Sput_Wide::run(VmMethodContext *vmc) {
     RegValue val{};
     val.j = vmc->getRegisterLong(vmc->tmp->dst);
     if (!vmc->method->resolveSetField(vmc->tmp->val_1.u4, nullptr, &val)) {
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwJavaException(vmc);
         return;
     }
     LOG_D("+ SPUT '%s'=%ld",
@@ -2598,7 +2256,7 @@ void ST_CH_Sput_Object::run(VmMethodContext *vmc) {
     RegValue val{};
     val.l = vmc->getRegisterAsObject(vmc->tmp->dst);
     if (!vmc->method->resolveSetField(vmc->tmp->val_1.u4, nullptr, &val)) {
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwJavaException(vmc);
         return;
     }
     LOG_D("+ SPUT '%s'=%p",
@@ -2615,7 +2273,7 @@ void ST_CH_Sput_Boolean::run(VmMethodContext *vmc) {
     RegValue val{};
     val.z = vmc->getRegister(vmc->tmp->dst);
     if (!vmc->method->resolveSetField(vmc->tmp->val_1.u4, nullptr, &val)) {
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwJavaException(vmc);
         return;
     }
     LOG_D("+ SPUT '%s'=%u",
@@ -2632,7 +2290,7 @@ void ST_CH_Sput_Byte::run(VmMethodContext *vmc) {
     RegValue val{};
     val.b = vmc->getRegister(vmc->tmp->dst);
     if (!vmc->method->resolveSetField(vmc->tmp->val_1.u4, nullptr, &val)) {
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwJavaException(vmc);
         return;
     }
     LOG_D("+ SPUT '%s'=%u",
@@ -2649,7 +2307,7 @@ void ST_CH_Sput_Char::run(VmMethodContext *vmc) {
     RegValue val{};
     val.c = vmc->getRegister(vmc->tmp->dst);
     if (!vmc->method->resolveSetField(vmc->tmp->val_1.u4, nullptr, &val)) {
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwJavaException(vmc);
         return;
     }
     LOG_D("+ SPUT '%s'=%u",
@@ -2666,7 +2324,7 @@ void ST_CH_Sput_Short::run(VmMethodContext *vmc) {
     RegValue val{};
     val.s = vmc->getRegister(vmc->tmp->dst);
     if (!vmc->method->resolveSetField(vmc->tmp->val_1.u4, nullptr, &val)) {
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwJavaException(vmc);
         return;
     }
     LOG_D("+ SPUT '%s'=%u",
@@ -2681,10 +2339,9 @@ void ST_CH_Invoke_Virtual::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->fetch(2);       /* 4 regs -or- first reg */
     LOG_D("|invoke-virtual args=%u @%u {regs=0x%08x %x}",
           vmc->tmp->src1 >> 4u, vmc->tmp->val_1.u4, vmc->tmp->dst, vmc->tmp->src1 & 0x0fu);
-    const jvalue *params = StandardInterpret::pushMethodParams(vmc, false);
-    StandardInterpret::invokeMethod(vmc, params);
-    delete[] params;
-    vmc->pc_off(3);
+
+    vmc->setState(VmMethodContextState::Method);
+    // no vmc->pc_off(3);
 }
 
 void ST_CH_Invoke_Super::run(VmMethodContext *vmc) {
@@ -2693,10 +2350,8 @@ void ST_CH_Invoke_Super::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->fetch(2);       /* 4 regs -or- first reg */
     LOG_D("|invoke-super args=%u @%u {regs=0x%08x %x}",
           vmc->tmp->src1 >> 4u, vmc->tmp->val_1.u4, vmc->tmp->dst, vmc->tmp->src1 & 0x0fu);
-    const jvalue *params = StandardInterpret::pushMethodParams(vmc, false);
-    StandardInterpret::invokeSuperMethod(vmc, params);
-    delete[] params;
-    vmc->pc_off(3);
+    vmc->setState(VmMethodContextState::SuperMethod);
+    // no vmc->pc_off(3);
 }
 
 void ST_CH_Invoke_Direct::run(VmMethodContext *vmc) {
@@ -2705,10 +2360,8 @@ void ST_CH_Invoke_Direct::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->fetch(2);       /* 4 regs -or- first reg */
     LOG_D("|invoke-direct args=%u @%u {regs=0x%08x %x}",
           vmc->tmp->src1 >> 4u, vmc->tmp->val_1.u4, vmc->tmp->dst, vmc->tmp->src1 & 0x0fu);
-    const jvalue *params = StandardInterpret::pushMethodParams(vmc, false);
-    StandardInterpret::invokeMethod(vmc, params);
-    delete[] params;
-    vmc->pc_off(3);
+    vmc->setState(VmMethodContextState::Method);
+    // no vmc->pc_off(3);
 }
 
 void ST_CH_Invoke_Static::run(VmMethodContext *vmc) {
@@ -2717,10 +2370,8 @@ void ST_CH_Invoke_Static::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->fetch(2);       /* 4 regs -or- first reg */
     LOG_D("|invoke-static args=%u @%u {regs=0x%08x %x}",
           vmc->tmp->src1 >> 4u, vmc->tmp->val_1.u4, vmc->tmp->dst, vmc->tmp->src1 & 0x0fu);
-    const jvalue *params = StandardInterpret::pushMethodParams(vmc, true);
-    StandardInterpret::invokeStaticMethod(vmc, params);
-    delete[] params;
-    vmc->pc_off(3);
+    vmc->setState(VmMethodContextState::StaticMethod);
+    // no vmc->pc_off(3);
 }
 
 void ST_CH_Invoke_Interface::run(VmMethodContext *vmc) {
@@ -2729,10 +2380,8 @@ void ST_CH_Invoke_Interface::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->fetch(2);       /* 4 regs -or- first reg */
     LOG_D("|invoke-interface args=%u @%u {regs=0x%08x %x}",
           vmc->tmp->src1 >> 4u, vmc->tmp->val_1.u4, vmc->tmp->dst, vmc->tmp->src1 & 0x0fu);
-    const jvalue *params = StandardInterpret::pushMethodParams(vmc, false);
-    StandardInterpret::invokeMethod(vmc, params);
-    delete[] params;
-    vmc->pc_off(3);
+    vmc->setState(VmMethodContextState::Method);
+    // no vmc->pc_off(3);
 }
 
 void ST_CH_Invoke_Virtual_Range::run(VmMethodContext *vmc) {
@@ -2741,10 +2390,8 @@ void ST_CH_Invoke_Virtual_Range::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->fetch(2);       /* 4 regs -or- first reg */
     LOG_D("|invoke-virtual-range args=%u @%u {regs=v%u-v%u}",
           vmc->tmp->src1, vmc->tmp->val_1.u4, vmc->tmp->dst, vmc->tmp->dst + vmc->tmp->src1 - 1);
-    const jvalue *params = StandardInterpret::pushMethodParamsRange(vmc, false);
-    StandardInterpret::invokeMethod(vmc, params);
-    delete[] params;
-    vmc->pc_off(3);
+    vmc->setState(VmMethodContextState::MethodRange);
+    // no vmc->pc_off(3);
 }
 
 void ST_CH_Invoke_Super_Range::run(VmMethodContext *vmc) {
@@ -2753,10 +2400,8 @@ void ST_CH_Invoke_Super_Range::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->fetch(2);       /* 4 regs -or- first reg */
     LOG_D("|invoke-super-range args=%u @%u {regs=v%u-v%u}",
           vmc->tmp->src1, vmc->tmp->val_1.u4, vmc->tmp->dst, vmc->tmp->dst + vmc->tmp->src1 - 1);
-    const jvalue *params = StandardInterpret::pushMethodParamsRange(vmc, false);
-    StandardInterpret::invokeSuperMethod(vmc, params);
-    delete[] params;
-    vmc->pc_off(3);
+    vmc->setState(VmMethodContextState::SuperMethodRange);
+    // no vmc->pc_off(3);
 }
 
 void ST_CH_Invoke_Direct_Range::run(VmMethodContext *vmc) {
@@ -2765,10 +2410,8 @@ void ST_CH_Invoke_Direct_Range::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->fetch(2);       /* 4 regs -or- first reg */
     LOG_D("|invoke-direct-range args=%u @%u {regs=v%u-v%u}",
           vmc->tmp->src1, vmc->tmp->val_1.u4, vmc->tmp->dst, vmc->tmp->dst + vmc->tmp->src1 - 1);
-    const jvalue *params = StandardInterpret::pushMethodParamsRange(vmc, false);
-    StandardInterpret::invokeMethod(vmc, params);
-    delete[] params;
-    vmc->pc_off(3);
+    vmc->setState(VmMethodContextState::MethodRange);
+    // no vmc->pc_off(3);
 }
 
 void ST_CH_Invoke_Static_Range::run(VmMethodContext *vmc) {
@@ -2777,10 +2420,8 @@ void ST_CH_Invoke_Static_Range::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->fetch(2);       /* 4 regs -or- first reg */
     LOG_D("|invoke-static-range args=%u @%u {regs=v%u-v%u}",
           vmc->tmp->src1, vmc->tmp->val_1.u4, vmc->tmp->dst, vmc->tmp->dst + vmc->tmp->src1 - 1);
-    const jvalue *params = StandardInterpret::pushMethodParamsRange(vmc, true);
-    StandardInterpret::invokeStaticMethod(vmc, params);
-    delete[] params;
-    vmc->pc_off(3);
+    vmc->setState(VmMethodContextState::StaticMethodRange);
+    // no vmc->pc_off(3);
 }
 
 void ST_CH_Invoke_Interface_Range::run(VmMethodContext *vmc) {
@@ -2789,10 +2430,8 @@ void ST_CH_Invoke_Interface_Range::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->fetch(2);       /* 4 regs -or- first reg */
     LOG_D("|invoke-interface-range args=%u @%u {regs=v%u-v%u}",
           vmc->tmp->src1, vmc->tmp->val_1.u4, vmc->tmp->dst, vmc->tmp->dst + vmc->tmp->src1 - 1);
-    const jvalue *params = StandardInterpret::pushMethodParamsRange(vmc, true);
-    StandardInterpret::invokeMethod(vmc, params);
-    delete[] params;
-    vmc->pc_off(3);
+    vmc->setState(VmMethodContextState::MethodRange);
+    // no vmc->pc_off(3);
 }
 
 void ST_CH_Neg_Int::run(VmMethodContext *vmc) {
@@ -3054,8 +2693,7 @@ void ST_CH_Div_Int::run(VmMethodContext *vmc) {
     vmc->tmp->val_1.i = vmc->getRegisterInt(vmc->tmp->src1);
     vmc->tmp->val_2.i = vmc->getRegisterInt(vmc->tmp->src2);
     if (vmc->tmp->val_2.i == 0) {
-        JAVAException::throwArithmeticException("divide by zero");
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwArithmeticException(vmc, "divide by zero");
         return;
     }
     if (vmc->tmp->val_1.u4 == 0x80000000u && vmc->tmp->val_2.i == -1) {
@@ -3076,8 +2714,7 @@ void ST_CH_Rem_Int::run(VmMethodContext *vmc) {
     vmc->tmp->val_1.i = vmc->getRegisterInt(vmc->tmp->src1);
     vmc->tmp->val_2.i = vmc->getRegisterInt(vmc->tmp->src2);
     if (vmc->tmp->val_2.i == 0) {
-        JAVAException::throwArithmeticException("divide by zero");
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwArithmeticException(vmc, "divide by zero");
         return;
     }
     if (vmc->tmp->val_1.u4 == 0x80000000u && vmc->tmp->val_2.i == -1) {
@@ -3206,8 +2843,7 @@ void ST_CH_Div_Long::run(VmMethodContext *vmc) {
     vmc->tmp->val_1.j = vmc->getRegisterLong(vmc->tmp->src1);
     vmc->tmp->val_2.j = vmc->getRegisterLong(vmc->tmp->src2);
     if (vmc->tmp->val_2.j == 0LL) {
-        JAVAException::throwArithmeticException("divide by zero");
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwArithmeticException(vmc, "divide by zero");
         return;
     }
     if (vmc->tmp->val_1.u8 == 0x8000000000000000ULL && vmc->tmp->val_2.j == -1LL) {
@@ -3228,8 +2864,7 @@ void ST_CH_Rem_Long::run(VmMethodContext *vmc) {
     vmc->tmp->val_1.j = vmc->getRegisterLong(vmc->tmp->src1);
     vmc->tmp->val_2.j = vmc->getRegisterLong(vmc->tmp->src2);
     if (vmc->tmp->val_2.j == 0LL) {
-        JAVAException::throwArithmeticException("divide by zero");
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwArithmeticException(vmc, "divide by zero");
         return;
     }
     if (vmc->tmp->val_1.u8 == 0x8000000000000000ULL && vmc->tmp->val_2.j == -1LL) {
@@ -3470,8 +3105,7 @@ void ST_CH_Div_Int_2Addr::run(VmMethodContext *vmc) {
     vmc->tmp->val_1.i = vmc->getRegisterInt(vmc->tmp->dst);
     vmc->tmp->val_2.i = vmc->getRegisterInt(vmc->tmp->src1);
     if (vmc->tmp->val_2.i == 0) {
-        JAVAException::throwArithmeticException("divide by zero");
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwArithmeticException(vmc, "divide by zero");
         return;
     }
     if (vmc->tmp->val_1.u4 == 0x80000000u && vmc->tmp->val_2.i == -1) {
@@ -3490,8 +3124,7 @@ void ST_CH_Rem_Int_2Addr::run(VmMethodContext *vmc) {
     vmc->tmp->val_1.i = vmc->getRegisterInt(vmc->tmp->dst);
     vmc->tmp->val_2.i = vmc->getRegisterInt(vmc->tmp->src1);
     if (vmc->tmp->val_2.i == 0) {
-        JAVAException::throwArithmeticException("divide by zero");
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwArithmeticException(vmc, "divide by zero");
         return;
     }
     if (vmc->tmp->val_1.u4 == 0x80000000u && vmc->tmp->val_2.i == -1) {
@@ -3600,8 +3233,7 @@ void ST_CH_Div_Long_2Addr::run(VmMethodContext *vmc) {
     vmc->tmp->val_1.j = vmc->getRegisterLong(vmc->tmp->dst);
     vmc->tmp->val_2.j = vmc->getRegisterLong(vmc->tmp->src1);
     if (vmc->tmp->val_2.j == 0) {
-        JAVAException::throwArithmeticException("divide by zero");
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwArithmeticException(vmc, "divide by zero");
         return;
     }
     if (vmc->tmp->val_1.u8 == 0x8000000000000000ULL && vmc->tmp->val_2.j == -1LL) {
@@ -3620,8 +3252,7 @@ void ST_CH_Rem_Long_2Addr::run(VmMethodContext *vmc) {
     vmc->tmp->val_1.j = vmc->getRegisterLong(vmc->tmp->dst);
     vmc->tmp->val_2.j = vmc->getRegisterLong(vmc->tmp->src1);
     if (vmc->tmp->val_2.j == 0) {
-        JAVAException::throwArithmeticException("divide by zero");
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwArithmeticException(vmc, "divide by zero");
         return;
     }
     if (vmc->tmp->val_1.u8 == 0x8000000000000000ULL && vmc->tmp->val_2.j == -1LL) {
@@ -3837,8 +3468,7 @@ void ST_CH_Div_Int_Lit16::run(VmMethodContext *vmc) {
           "div", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->val_2.s2);
     vmc->tmp->val_1.s4 = vmc->getRegisterInt(vmc->tmp->src1);
     if (vmc->tmp->val_2.s2 == 0) {
-        JAVAException::throwArithmeticException("divide by zero");
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwArithmeticException(vmc, "divide by zero");
         return;
     }
     if (vmc->tmp->val_1.u4 == 0x80000000u && vmc->tmp->val_2.s2 != -1) {
@@ -3858,8 +3488,7 @@ void ST_CH_Rem_Int_Lit16::run(VmMethodContext *vmc) {
           "rem", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->val_2.s2);
     vmc->tmp->val_1.s4 = vmc->getRegisterInt(vmc->tmp->src1);
     if (vmc->tmp->val_2.s2 == 0) {
-        JAVAException::throwArithmeticException("divide by zero");
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwArithmeticException(vmc, "divide by zero");
         return;
     }
     if (vmc->tmp->val_1.u4 == 0x80000000u && vmc->tmp->val_2.s2 != -1) {
@@ -3955,8 +3584,7 @@ void ST_CH_Div_Int_Lit8::run(VmMethodContext *vmc) {
           "div", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->val_2.s1);
     vmc->tmp->val_1.s4 = vmc->getRegisterInt(vmc->tmp->src1);
     if (vmc->tmp->val_2.s1 == 0) {
-        JAVAException::throwArithmeticException("divide by zero");
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwArithmeticException(vmc, "divide by zero");
         return;
     }
     if (vmc->tmp->val_1.u4 == 0x80000000u && vmc->tmp->val_2.s1 != -1) {
@@ -3977,8 +3605,7 @@ void ST_CH_Rem_Int_Lit8::run(VmMethodContext *vmc) {
           "rem", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->val_2.s1);
     vmc->tmp->val_1.s4 = vmc->getRegisterInt(vmc->tmp->src1);
     if (vmc->tmp->val_2.s1 == 0) {
-        JAVAException::throwArithmeticException("divide by zero");
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwArithmeticException(vmc, "divide by zero");
         return;
     }
     if (vmc->tmp->val_1.u4 == 0x80000000u && vmc->tmp->val_2.s1 != -1) {
@@ -4075,13 +3702,12 @@ void ST_CH_Iget_Volatile::run(VmMethodContext *vmc) {
     LOG_D("|iget%s v%u,v%u,field@%u",
           "-normal-volatile", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->val_1.u4);
     vmc->tmp->val_2.l = vmc->getRegisterAsObject(vmc->tmp->src1);
-    if (!JAVAException::checkForNull(vmc->tmp->val_2.l)) {
-        JAVAException::throwJavaException(vmc);
+    if (!JavaException::checkForNull(vmc, vmc->tmp->val_2.l)) {
         return;
     }
     RegValue val{};
     if (!vmc->method->resolveField(vmc->tmp->val_1.u4, vmc->tmp->val_2.l, &val)) {
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwJavaException(vmc);
         return;
     }
     vmc->setRegisterInt(vmc->tmp->dst, val.i);
@@ -4098,14 +3724,13 @@ void ST_CH_Iput_Volatile::run(VmMethodContext *vmc) {
     LOG_D("|iput%s v%u,v%u,field@%u",
           "-normal-volatile", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->val_1.u4);
     vmc->tmp->val_2.l = vmc->getRegisterAsObject(vmc->tmp->src1);
-    if (!JAVAException::checkForNull(vmc->tmp->val_2.l)) {
-        JAVAException::throwJavaException(vmc);
+    if (!JavaException::checkForNull(vmc, vmc->tmp->val_2.l)) {
         return;
     }
     RegValue val{};
     val.i = vmc->getRegister(vmc->tmp->dst);
     if (!vmc->method->resolveSetField(vmc->tmp->val_1.u4, vmc->tmp->val_2.l, &val)) {
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwJavaException(vmc);
         return;
     }
     LOG_D("+ IPUT '%s'=%d",
@@ -4121,7 +3746,7 @@ void ST_CH_Sget_Volatile::run(VmMethodContext *vmc) {
           "-normal-volatile", vmc->tmp->dst, vmc->tmp->val_1.u4);
     RegValue val{};
     if (!vmc->method->resolveField(vmc->tmp->val_1.u4, nullptr, &val)) {
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwJavaException(vmc);
         return;
     }
     vmc->setRegister(vmc->tmp->dst, val.i);
@@ -4139,7 +3764,7 @@ void ST_CH_Sput_Volatile::run(VmMethodContext *vmc) {
     RegValue val{};
     val.i = vmc->getRegister(vmc->tmp->dst);
     if (!vmc->method->resolveSetField(vmc->tmp->val_1.u4, nullptr, &val)) {
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwJavaException(vmc);
         return;
     }
     LOG_D("+ SPUT '%s'=%d",
@@ -4155,13 +3780,12 @@ void ST_CH_Iget_Object_Volatile::run(VmMethodContext *vmc) {
     LOG_D("|iget%s v%u,v%u,field@%u",
           "-object-volatile", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->val_1.u4);
     vmc->tmp->val_2.l = vmc->getRegisterAsObject(vmc->tmp->src1);
-    if (!JAVAException::checkForNull(vmc->tmp->val_2.l)) {
-        JAVAException::throwJavaException(vmc);
+    if (!JavaException::checkForNull(vmc, vmc->tmp->val_2.l)) {
         return;
     }
     RegValue val{};
     if (!vmc->method->resolveField(vmc->tmp->val_1.u4, vmc->tmp->val_2.l, &val)) {
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwJavaException(vmc);
         return;
     }
     vmc->setRegisterAsObject(vmc->tmp->dst, val.l);
@@ -4178,13 +3802,12 @@ void ST_CH_Iget_Wide_Volatile::run(VmMethodContext *vmc) {
     LOG_D("|iget%s v%u,v%u,field@%u",
           "-wide-volatile", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->val_1.u4);
     vmc->tmp->val_2.l = vmc->getRegisterAsObject(vmc->tmp->src1);
-    if (!JAVAException::checkForNull(vmc->tmp->val_2.l)) {
-        JAVAException::throwJavaException(vmc);
+    if (!JavaException::checkForNull(vmc, vmc->tmp->val_2.l)) {
         return;
     }
     RegValue val{};
     if (!vmc->method->resolveField(vmc->tmp->val_1.u4, vmc->tmp->val_2.l, &val)) {
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwJavaException(vmc);
         return;
     }
     vmc->setRegisterWide(vmc->tmp->dst, val.j);
@@ -4201,14 +3824,13 @@ void ST_CH_Iput_Wide_Volatile::run(VmMethodContext *vmc) {
     LOG_D("|iput%s v%u,v%u,field@%u",
           "-wide-volatile", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->val_1.u4);
     vmc->tmp->val_2.l = vmc->getRegisterAsObject(vmc->tmp->src1);
-    if (!JAVAException::checkForNull(vmc->tmp->val_2.l)) {
-        JAVAException::throwJavaException(vmc);
+    if (!JavaException::checkForNull(vmc, vmc->tmp->val_2.l)) {
         return;
     }
     RegValue val{};
     val.j = vmc->getRegisterLong(vmc->tmp->dst);
     if (!vmc->method->resolveSetField(vmc->tmp->val_1.u4, vmc->tmp->val_2.l, &val)) {
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwJavaException(vmc);
         return;
     }
     LOG_D("+ IPUT '%s'=%ld",
@@ -4224,7 +3846,7 @@ void ST_CH_Sget_Wide_Volatile::run(VmMethodContext *vmc) {
           "-wide-volatile", vmc->tmp->dst, vmc->tmp->val_1.u4);
     RegValue val{};
     if (!vmc->method->resolveField(vmc->tmp->val_1.u4, nullptr, &val)) {
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwJavaException(vmc);
         return;
     }
     vmc->setRegisterLong(vmc->tmp->dst, val.j);
@@ -4242,7 +3864,7 @@ void ST_CH_Sput_Wide_Volatile::run(VmMethodContext *vmc) {
     RegValue val{};
     val.j = vmc->getRegisterLong(vmc->tmp->dst);
     if (!vmc->method->resolveSetField(vmc->tmp->val_1.u4, nullptr, &val)) {
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwJavaException(vmc);
         return;
     }
     LOG_D("+ SPUT '%s'=%ld",
@@ -4258,14 +3880,13 @@ void ST_CH_Iput_Object_Volatile::run(VmMethodContext *vmc) {
     LOG_D("|iput%s v%u,v%u,field@%u",
           "-object-volatile", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->val_1.u4);
     vmc->tmp->val_2.l = vmc->getRegisterAsObject(vmc->tmp->src1);
-    if (!JAVAException::checkForNull(vmc->tmp->val_2.l)) {
-        JAVAException::throwJavaException(vmc);
+    if (!JavaException::checkForNull(vmc, vmc->tmp->val_2.l)) {
         return;
     }
     RegValue val{};
     val.l = vmc->getRegisterAsObject(vmc->tmp->dst);
     if (!vmc->method->resolveSetField(vmc->tmp->val_1.u4, vmc->tmp->val_2.l, &val)) {
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwJavaException(vmc);
         return;
     }
     LOG_D("+ IPUT '%s'=%p",
@@ -4281,7 +3902,7 @@ void ST_CH_Sget_Object_Volatile::run(VmMethodContext *vmc) {
           "-object-volatile", vmc->tmp->dst, vmc->tmp->val_1.u4);
     RegValue val{};
     if (!vmc->method->resolveField(vmc->tmp->val_1.u4, nullptr, &val)) {
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwJavaException(vmc);
         return;
     }
     vmc->setRegisterAsObject(vmc->tmp->dst, val.l);
@@ -4299,7 +3920,7 @@ void ST_CH_Sput_Object_Volatile::run(VmMethodContext *vmc) {
     RegValue val{};
     val.i = vmc->getRegister(vmc->tmp->dst);
     if (!vmc->method->resolveSetField(vmc->tmp->val_1.u4, nullptr, &val)) {
-        JAVAException::throwJavaException(vmc);
+        JavaException::throwJavaException(vmc);
         return;
     }
     LOG_D("+ SPUT '%s'=%p",
