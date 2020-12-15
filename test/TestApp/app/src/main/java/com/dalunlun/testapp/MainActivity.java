@@ -1,10 +1,9 @@
 package com.dalunlun.testapp;
 
-import androidx.appcompat.app.AppCompatActivity;
-
 import android.os.Bundle;
-import android.util.Log;
 import android.widget.TextView;
+
+import androidx.appcompat.app.AppCompatActivity;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -23,6 +22,7 @@ public class MainActivity extends AppCompatActivity {
         // Example of a call to a native method
         TextView tv = findViewById(R.id.sample_text);
         tv.setText(stringFromJNI());
+
         this.test();
     }
 
@@ -35,7 +35,7 @@ public class MainActivity extends AppCompatActivity {
     public void test() {
         long ret = 0;
         int count = 10;
-        for (int i = 0; i < count; i++) {
+        for (int i = 1; i < count; i++) {
             ret = this.sum(ret, i);
         }
         System.out.println("ret_1: " + ret);

@@ -3,36 +3,40 @@
 ### We often choose between the right things and the easy ones。
 
 ## TODO
-  + [x] test vm application name
-  + [x] don't parse some data struct.
-  + [x] test parsing
-  + [x] write to new dex file
-  + [x] test my dex file by apktool
-  + [x] change AndroidManifest.xml
-  + [x] design a new format of data file
-  + [x] main shell step
-  + [x] main vm code about setup system
-  + [x] test repackaged App
-  + [x] change java method to native method
-  + [x] add vm interpreter
-  + [x] test base vmp's App
-  + [ ] randomized bytecode and update interpreter
-  + [ ] relocate "relocate" and confusion
-  + [x] add code cache(used map:{k: method id, v: CodeItem})
-  + [x] hide stack
-  + [x] stack in random address
-  + [ ] cancel JNI call
-  + [x] delete debug info in dex file
-  + [ ] test App's profile
-  
-  
-  Additional:
-  + [ ] zip my data file
-  + [ ] opt reg memory
-  + [ ] register key functions dynamically and hide the map
-  
+
++ [x] test vm application name
++ [x] don't parse some data struct.
++ [x] test parsing
++ [x] write to new dex file
++ [x] test my dex file by apktool
++ [x] change AndroidManifest.xml
++ [x] design a new format of data file
++ [x] main shell step
++ [x] main vm code about setup system
++ [x] test repackaged App
++ [x] change java method to native method
++ [x] add vm interpreter
++ [x] test base vmp's App
++ [ ] randomized bytecode and update interpreter
++ [ ] relocate "relocate" and confusion
++ [x] add code cache(used map:{k: method id, v: CodeItem})
++ [x] hide stack
++ [x] stack in random address
++ [ ] cancel JNI call
++ [x] delete debug info in dex file
++ [x] memory cache
++ [ ] test App's profile
+
+Additional:
+
++ [ ] zip my data file
++ [ ] opt reg memory
++ [ ] register key functions dynamically and hide the map
 
 ## git log
+    [2020-12-15]:   1. TODD: memory cache
+                    2. test [2020-12-13] -> 1.2.
+                    3. test [2020-12-09] -> 2.
     [2020-12-13]:   1. TODO: hide stack
                     2. TODO: delete debug info in dex file
                     3. deal with VmException and JavaException

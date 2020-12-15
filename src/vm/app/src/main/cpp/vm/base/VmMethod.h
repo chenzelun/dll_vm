@@ -10,6 +10,7 @@
 #include "../../common/Util.h"
 #include "../../common/AndroidSystem.h"
 #include "VmCommon.h"
+#include "VmMemory.h"
 
 class DexFile {
 public:
@@ -51,7 +52,7 @@ public:
 
     /*
      * Get the descriptor string associated with a given type index.
-     * The caller should not free() the returned string.
+     * The caller should not freeCache() the returned string.
      */
     inline const char *dexStringByTypeIdx(u4 idx) {
         const DexTypeId *typeId = this->dexGetTypeId(idx);
@@ -105,17 +106,17 @@ public:
 
 class VmMethod {
 public:
-    uint32_t method_id;
     DexFile *dexFile;
     const char *name;
     const char *clazzDescriptor;
     const DexProtoId *protoId;
-    u4 accessFlags;
+    uint32_t accessFlags;
+    uint32_t method_id;
     CodeItemData *code;
     u1 *triesAndHandlersBuf;
 
 public:
-    VmMethod(jmethodID jniMethod, bool isUpdateCode = true);
+    VmMethod *reset(jmethodID jniMethod, bool isUpdateCode = true);
 
     jstring resolveString(u4 idx) const;
 
@@ -164,8 +165,11 @@ private:
     VmMethodContextState state;
     uint16_t pc;
 
+    static uint32_t regCacheKey;
+    static uint32_t methodCacheKey;
+
 public:
-    inline void setState(VmMethodContextState contextState){
+    inline void setState(VmMethodContextState contextState) {
         this->state = contextState;
     }
 
@@ -177,7 +181,7 @@ public:
         this->state = VmMethodContextState::JniMethodToCall;
     }
 
-    inline bool isCallStaticMethod()const {
+    inline bool isCallStaticMethod() const {
         return this->state == VmMethodContextState::StaticMethod ||
                this->state == VmMethodContextState::StaticMethodRange;
     }
@@ -209,13 +213,12 @@ public:
                && this->state < VmMethodContextState::MethodToCall_End;
     }
 
-#if defined(VM_DEBUG)
-
     void printVmMethodContext() const;
 
+#if defined(VM_DEBUG_FULL)
     void printMethodInsns() const;
-
 #endif
+
 
     inline void finish() {
         assert(this->state != VmMethodContextState::Return);
@@ -260,7 +263,7 @@ public:
         this->pc = off;
     }
 
-    inline void goto_off(int32_t off){
+    inline void goto_off(int32_t off) {
         this->pc = this->pc + off;
         assert(0 <= this->pc && this->pc <= this->method->code->insnsSize);
     }
@@ -271,7 +274,7 @@ public:
         return this->method->code->insns + data_off;
     }
 
-    inline u4 getRegister(uint32_t off)const {
+    inline u4 getRegister(uint32_t off) const {
         return this->reg[off].u4;
     }
 
@@ -279,7 +282,7 @@ public:
         this->reg[off].u4 = val;
     }
 
-    inline jint getRegisterInt(uint32_t off)const {
+    inline jint getRegisterInt(uint32_t off) const {
         return this->reg[off].i;
     }
 
@@ -287,7 +290,7 @@ public:
         this->reg[off].i = val;
     }
 
-    inline u8 getRegisterWide(uint32_t off)const {
+    inline u8 getRegisterWide(uint32_t off) const {
         return this->reg[off].u8;
     }
 

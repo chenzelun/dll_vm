@@ -6,13 +6,14 @@
 #define VM_STANDARDINTERPRET_H
 
 #include "Interpret.h"
+#include "../base/VmCommon.h"
 
 #define kPackedSwitchSignature  0x0100
 #define kSparseSwitchSignature  0x0200
 #define kArrayDataSignature     0x0300
 
 
-class StandardInterpret : public Interpret{
+class StandardInterpret : public Interpret {
 public:
     StandardInterpret();
 
@@ -20,19 +21,10 @@ public:
 
     static void filledNewArray(VmMethodContext *vmc, bool range);
 
-    static s4 handlePackedSwitch(VmMethodContext *vmc,const u2 *switchData, s4 testVal);
+    static s4 handlePackedSwitch(VmMethodContext *vmc, const u2 *switchData, s4 testVal);
 
-    static s4 handleSparseSwitch(VmMethodContext *vmc,const u2 *switchData, s4 testVal);
-
-#if defined(VM_DEBUG)
-
-    static void debugInvokeMethod(VmMethodContext *vmc, jmethodID methodCalled,
-                                  const char *shorty, const jvalue retVal,
-                                  const jvalue *params);
-
-#endif
+    static s4 handleSparseSwitch(VmMethodContext *vmc, const u2 *switchData, s4 testVal);
 };
-
 
 
 class ST_CH_NOP : public CodeHandler {

@@ -9,18 +9,22 @@
 #include <string>
 #include "base/VmMethod.h"
 #include "interpret/Interpret.h"
-#include "VmStack.h"
+#include "base/VmStack.h"
+#include "base/VmCache.h"
 #include "base/VmMemory.h"
 
 #define  PRIMITIVE_TYPE_SIZE 8
 
-class Vm : public VmMemory, public VmStack {
+class Vm : public VmStack, public VmCache {
 private:
     Interpret *interpret;
-    VmRandomStack *stackManager;
-    VmRandomMemory *vmMemory;
-    VmKeyMethodCaller *keyMethodCaller;
-    VmJniMethodCaller *jniMethodCaller;
+
+    VmMemory *vmMemory;
+    VmStack *vmStack;
+    VmCache* vmCache;
+
+    VmMethodCaller *keyMethodCaller;
+    VmMethodCaller *jniMethodCaller;
 
     // tmp data
     VmTempData methodTempData;
@@ -29,11 +33,11 @@ public:
     VmTempData *getTempDataBuf();
 
     inline VmMethodContext *getCurVMC() {
-        return &this->stackManager->getTopFrame()->vmc;
+        return &this->vmStack->getTopFrame()->vmc;
     }
 
     inline bool isCallFromVm() {
-        VmFrame *pre = this->stackManager->getTopFrame()->pre;
+        VmFrame *pre = this->vmStack->getTopFrame()->pre;
         return pre != nullptr && pre->vmc.isCallFromVm();
     }
 
@@ -58,9 +62,11 @@ public:
 
     void pop() override;
 
-    uint8_t *malloc() override;
+    uint8_t *mallocCache(uint32_t key, uint32_t count) override;
 
-    void free(void *p) override;
+    void freeCache(uint32_t key, uint32_t count) override;
+
+    uint32_t newCacheType(uint32_t bufSize) override;
 
 
 private:

@@ -10,6 +10,15 @@
 #include <jni.h>
 
 
+//#define VM_DEBUG_FULL
+
+#if defined(VM_DEBUG_FULL)
+#define LOG_D_VM(...) LOG_D(__VA_ARGS__)
+#else
+#define LOG_D_VM(...)
+#endif
+
+
 union RegValue {
     jboolean z;
     jbyte b;

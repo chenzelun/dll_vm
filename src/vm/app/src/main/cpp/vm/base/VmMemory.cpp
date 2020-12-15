@@ -21,7 +21,7 @@ VmRandomMemory::VmRandomMemory(uint64_t memSize) {
         throw VMException("VmRandomMemory mmap this->base fail.");
     }
     this->maxPageCount = memSize >> 12u;
-    LOG_D("memory size: %lu, base: %p", memSize, this->base);
+    LOG_D_VM("memory size: %lu, base: %p", memSize, this->base);
 }
 
 VmRandomMemory::~VmRandomMemory() {
@@ -31,7 +31,7 @@ VmRandomMemory::~VmRandomMemory() {
 uint8_t *VmRandomMemory::malloc() {
     uint32_t memNum;
     if (!this->freePages.empty()) {
-        // malloc from cache.
+        // mallocCache from cache.
         memNum = *this->freePages.begin();
         this->freePages.erase(memNum);
     } else {
@@ -41,13 +41,13 @@ uint8_t *VmRandomMemory::malloc() {
         } while (this->fullPages.find(memNum) != this->fullPages.end());
     }
     this->fullPages.insert(memNum);
-    LOG_D("VmRandomMemory::malloc: %p, num: %u", this->memNum2Mem(memNum), memNum);
+    LOG_D_VM("VmRandomMemory::mallocCache: %p, num: %u", this->memNum2Mem(memNum), memNum);
     return this->memNum2Mem(memNum);
 }
 
 void VmRandomMemory::free(void *p) {
     uint32_t memNum = this->mem2MemNum((uint8_t *) p);
-    LOG_D("VmRandomMemory::free: %p, num: %u", p, memNum);
+    LOG_D_VM("VmRandomMemory::freeCache: %p, num: %u", p, memNum);
     this->fullPages.erase(memNum);
     this->freePages.insert(memNum);
     this->freeToSystem();
@@ -57,7 +57,7 @@ void VmRandomMemory::freeToSystem() {
     if (this->freePages.size() < VM_CONFIG::VM_MEMORY_FREE_PAGE_SIZE) {
         return;
     }
-    LOG_D("freeToSystem");
+    LOG_D_VM("freeToSystem");
     std::set<uint32_t> needDel;
     uint32_t idx = 0;
     for (auto it = this->freePages.begin(); it != this->freePages.end(); it++, idx++) {
@@ -70,7 +70,7 @@ void VmRandomMemory::freeToSystem() {
             LOG_E("error: %s", strerror(errno));
             throw VMException("can't munmap.");
         }
-        LOG_D("munmap: %p", this->memNum2Mem(*it));
+        LOG_D_VM("munmap: %p", this->memNum2Mem(*it));
     }
 
     for (auto it : needDel) {
@@ -84,7 +84,7 @@ void VmRandomMemory::freeToSystem() {
             LOG_E("error: %s", strerror(errno));
             throw VMException("can't mmap.");
         }
-        LOG_D("mmap: %p", this->memNum2Mem(it));
+        LOG_D_VM("mmap: %p", this->memNum2Mem(it));
     }
 }
 

@@ -8,9 +8,7 @@
 #include "../common/Util.h"
 
 void JavaException::throwJavaException(VmMethodContext *vmc) {
-#if defined(VM_DEBUG)
     (*VM_CONTEXT::env).ExceptionDescribe();
-#endif
     vmc->curException = (*VM_CONTEXT::env).ExceptionOccurred();
     assert(vmc->curException != nullptr);
     (*VM_CONTEXT::env).ExceptionClear();
@@ -71,10 +69,10 @@ bool JavaException::handleJavaException(VmMethodContext *vmc) {
     }
 
     if (catchOff == -1) {       // not found.
-        LOG_D("can't handle the exception and threw it to caller.");
+        LOG_E("can't handle the exception and threw it to caller.");
         return false;
     } else {
-        LOG_D("handle the exception.");
+        LOG_D_VM("handle the exception.");
         vmc->set_pc(catchOff);
         // remove the exception.
         vmc->curException = nullptr;
@@ -83,7 +81,7 @@ bool JavaException::handleJavaException(VmMethodContext *vmc) {
 }
 
 bool JavaException::checkForNull(VmMethodContext *vmc, jobject obj) {
-    LOG_D("obj: %p", obj);
+    LOG_D_VM("obj: %p", obj);
     if (obj == nullptr) {
         JavaException::throwNullPointerException(vmc, nullptr);
         return false;
@@ -106,7 +104,7 @@ JavaException::throwNew(VmMethodContext *vmc, const char *exceptionClassName, co
 
 void
 JavaException::throwClassCastException(VmMethodContext *vmc, jclass actual, jclass desired) {
-#if defined(VM_DEBUG)
+#if defined(VM_DEBUG_FULL)
     std::string msg = VmMethod::getClassDescriptorByJClass(actual);
     msg += " cannot be cast to ";
     msg += VmMethod::getClassDescriptorByJClass(desired);

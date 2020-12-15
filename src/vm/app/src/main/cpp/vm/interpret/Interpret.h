@@ -17,7 +17,6 @@ public:
 
 class Interpret {
 protected:
-    VmMethodCaller* caller;
     std::map<uint32_t, CodeHandler *> codeMap;
 
 public:

@@ -33,7 +33,8 @@ add_library( # Sets the name of the library.
 
         vm/Vm.cpp
         vm/JavaException.cpp
-        vm/VmStack.cpp
+        vm/base/VmStack.cpp
+        vm/base/VmCache.cpp
         vm/base/VmMethod.cpp
         vm/base/VmMemory.cpp
 

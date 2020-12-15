@@ -15,6 +15,8 @@ public:
     virtual uint8_t *malloc() = 0;
 
     virtual void free(void *p) = 0;
+
+    virtual ~VmMemory(){};
 };
 
 class VmRandomMemory : public VmMemory {

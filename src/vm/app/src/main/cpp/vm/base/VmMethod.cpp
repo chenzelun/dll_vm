@@ -25,35 +25,9 @@ DexFile::DexFile(const u1 *base) {
     }
 }
 
-VmMethod::VmMethod(jmethodID jniMethod, bool isUpdateCode) {
-    void *artMethod = jniMethod;
-    this->method_id = ((ArtMethod_26_28 *) artMethod)->dex_method_index;
-    auto *artClass = (ArtClass *) (uint64_t) ((ArtMethod_26_28 *) artMethod)->declaring_class;
-    void *artDexCache = (void *) (uint64_t) artClass->dex_cache;
-    auto *artDexFile = (ArtDexFile_28 *) ((ArtDexCache_26_28 *) artDexCache)->dex_file;
-    this->dexFile = new DexFile(artDexFile->begin);
-    const DexMethodId *pDexMethodId =
-            this->dexFile->dexGetMethodId(((ArtMethod_26_28 *) artMethod)->dex_method_index);
-    this->protoId = this->dexFile->dexGetProtoId(pDexMethodId->protoIdx);
-    this->accessFlags = ((ArtMethod_26_28 *) artMethod)->access_flags;
-    this->clazzDescriptor = this->dexFile->dexStringByTypeIdx(pDexMethodId->classIdx);
-    this->name = this->dexFile->dexStringById(pDexMethodId->nameIdx);
-
-    if (isUpdateCode) {
-        // update code.
-        this->code = (CodeItemData *) VM_CONTEXT::vmKFCFile->getCode(this->method_id);
-        this->triesAndHandlersBuf = (u1 *) (this->code->insns + this->code->insnsSize);
-        this->triesAndHandlersBuf += this->code->insnsSize & 0x01u ? 0x02 : 0x00;
-    } else {
-        this->code = nullptr;
-        this->triesAndHandlersBuf = nullptr;
-        LOG_W("isUpdateCode: false.");
-    }
-}
-
 jstring VmMethod::resolveString(u4 idx) const {
     const char *data = this->dexFile->dexStringById(idx);
-    LOG_D("+++ resolving string=%s, referrer is %s", data, this->clazzDescriptor);
+    LOG_D_VM("+++ resolving string=%s, referrer is %s", data, this->clazzDescriptor);
     return VM_CONTEXT::env->NewStringUTF(data);
 }
 
@@ -66,8 +40,8 @@ jclass VmMethod::resolveClass(u4 idx) const {
         clazzName = clazzName.substr(1, clazzName.size() - 2);
         retClass = (*VM_CONTEXT::env).FindClass(clazzName.data());
     }
-    LOG_D("--- resolving class %s (idx=%u referrer=%s)",
-          clazzName.data(), idx, this->clazzDescriptor);
+    LOG_D_VM("--- resolving class %s (idx=%u referrer=%s)",
+             clazzName.data(), idx, this->clazzDescriptor);
     return retClass;
 }
 
@@ -80,7 +54,7 @@ std::string VmMethod::getClassDescriptorByJClass(jclass clazz) {
             VM_REFLECT::SIGN_Class_getName);
     auto utfString = (jstring) (*env).CallObjectMethod(clazz, mGetCanonicalName);
     const char *javaDescChars = (*env).GetStringUTFChars(utfString, JNI_FALSE);
-    LOG_D("descriptor: %s", javaDescChars);
+    LOG_D_VM("descriptor: %s", javaDescChars);
     std::string retVal(javaDescChars);
     (*env).ReleaseStringUTFChars(utfString, javaDescChars);
 //    (*env).DeleteLocalRef(utfString);
@@ -90,8 +64,8 @@ std::string VmMethod::getClassDescriptorByJClass(jclass clazz) {
 
 jarray VmMethod::allocArray(s4 len, u4 idx) const {
     std::string clazzName = this->dexFile->dexStringById(idx);
-    LOG_D("--- resolving class %s (idx=%u referrer=%s)", clazzName.data(), idx,
-          this->clazzDescriptor);
+    LOG_D_VM("--- resolving class %s (idx=%u referrer=%s)", clazzName.data(), idx,
+             this->clazzDescriptor);
     assert(clazzName[0] == '[');
     jclass elementClazz;
     jarray retValue;
@@ -142,8 +116,8 @@ jarray VmMethod::allocArray(s4 len, u4 idx) const {
  * @return true or false. If false, must catch exception.
  */
 bool VmMethod::resolveField(u4 idx, jobject obj, RegValue *retVal) const {
-    LOG_D("--- resolving field %u (referrer=%s)",
-          idx, this->clazzDescriptor);
+    LOG_D_VM("--- resolving field %u (referrer=%s)",
+             idx, this->clazzDescriptor);
     JNIEnv *env = VM_CONTEXT::env;
     const DexFieldId *pFieldId = this->dexFile->dexGetFieldId(idx);
     jclass resClazz = this->resolveClass(pFieldId->classIdx);
@@ -209,21 +183,21 @@ bool VmMethod::resolveField(u4 idx, jobject obj, RegValue *retVal) const {
             throw VMException("error type of field... cc");
     }
 //    (*env).DeleteLocalRef(resClazz);
-    LOG_D("--- resolving field %s (referrer=%s)",
-          fName, this->clazzDescriptor);
+    LOG_D_VM("--- resolving field %s (referrer=%s)",
+             fName, this->clazzDescriptor);
     return true;
 }
 
 const char *VmMethod::resolveFieldName(u4 idx) const {
     const DexFieldId *pFieldId = this->dexFile->dexGetFieldId(idx);
-    LOG_D("--- resolving field %s (referrer=%s)",
-          this->dexFile->dexStringById(pFieldId->nameIdx), this->clazzDescriptor);
+    LOG_D_VM("--- resolving field %s (referrer=%s)",
+             this->dexFile->dexStringById(pFieldId->nameIdx), this->clazzDescriptor);
     return this->dexFile->dexStringById(pFieldId->nameIdx);
 }
 
 bool VmMethod::resolveSetField(u4 idx, jobject obj, const RegValue *val) const {
-    LOG_D("--- resolving field %u (referrer=%s)",
-          idx, this->clazzDescriptor);
+    LOG_D_VM("--- resolving field %u (referrer=%s)",
+             idx, this->clazzDescriptor);
     JNIEnv *env = VM_CONTEXT::env;
     const DexFieldId *pFieldId = this->dexFile->dexGetFieldId(idx);
     jclass resClazz = this->resolveClass(pFieldId->classIdx);
@@ -300,16 +274,16 @@ bool VmMethod::resolveSetField(u4 idx, jobject obj, const RegValue *val) const {
             throw VMException("error type of field... cc");
     }
 //    (*env).DeleteLocalRef(resClazz);
-    LOG_D("--- resolving field %s (referrer=%s)",
-          fName, this->clazzDescriptor);
+    LOG_D_VM("--- resolving field %s (referrer=%s)",
+             fName, this->clazzDescriptor);
     return true;
 }
 
 jmethodID VmMethod::resolveMethod(u4 idx, bool isStatic) const {
     const DexMethodId *dexMethodId = this->dexFile->dexGetMethodId(idx);
     const char *resName = this->dexFile->dexStringById(dexMethodId->nameIdx);
-    LOG_D("--- resolving method=%s (idx=%u class=%s)", resName, idx,
-          this->dexFile->dexStringByTypeIdx(dexMethodId->classIdx));
+    LOG_D_VM("--- resolving method=%s (idx=%u class=%s)", resName, idx,
+             this->dexFile->dexStringByTypeIdx(dexMethodId->classIdx));
     std::string sign = this->resolveMethodSign(dexMethodId->protoIdx);
     jclass resClass = this->resolveClass(dexMethodId->classIdx);
     if (resClass == nullptr) {
@@ -336,40 +310,81 @@ std::string VmMethod::resolveMethodSign(u4 idx) const {
     }
     ret += ")";
     ret += this->dexFile->dexStringByTypeIdx(dexProtoId->returnTypeIdx);
-    LOG_D("--- resolving proto(%u) sign %s", idx, ret.data());
+    LOG_D_VM("--- resolving proto(%u) sign %s", idx, ret.data());
     return ret;
 }
 
-#if defined(VM_DEBUG)
+VmMethod *VmMethod::reset(jmethodID jniMethod, bool isUpdateCode) {
+    void *artMethod = jniMethod;
+    this->method_id = ((ArtMethod_26_28 *) artMethod)->dex_method_index;
+    auto *artClass = (ArtClass *) (uint64_t) ((ArtMethod_26_28 *) artMethod)->declaring_class;
+    void *artDexCache = (void *) (uint64_t) artClass->dex_cache;
+    auto *artDexFile = (ArtDexFile_28 *) ((ArtDexCache_26_28 *) artDexCache)->dex_file;
+    this->dexFile = new DexFile(artDexFile->begin);
+    const DexMethodId *pDexMethodId =
+            this->dexFile->dexGetMethodId(((ArtMethod_26_28 *) artMethod)->dex_method_index);
+    this->protoId = this->dexFile->dexGetProtoId(pDexMethodId->protoIdx);
+    this->accessFlags = ((ArtMethod_26_28 *) artMethod)->access_flags;
+    this->clazzDescriptor = this->dexFile->dexStringByTypeIdx(pDexMethodId->classIdx);
+    this->name = this->dexFile->dexStringById(pDexMethodId->nameIdx);
+
+    if (isUpdateCode) {
+        // update code.
+        this->code = (CodeItemData *) VM_CONTEXT::vmKFCFile->getCode(this->method_id);
+        this->triesAndHandlersBuf = (u1 *) (this->code->insns + this->code->insnsSize);
+        this->triesAndHandlersBuf += this->code->insnsSize & 0x01u ? 0x02 : 0x00;
+    } else {
+        this->code = nullptr;
+        this->triesAndHandlersBuf = nullptr;
+        LOG_W("isUpdateCode: false.");
+    }
+    return this;
+}
+
 
 void VmMethodContext::printVmMethodContext() const {
-//    LOG_D("current method: %s#%s", this->method->clazzDescriptor, this->method->name);
-//    for (int i = 0; i < this->method->code->registersSize; ++i) {
-//        LOG_D("reg[%d]: 0x%016lx", i, this->reg[i].u8);
-//    }
-//
-//    LOG_D("src1: %u, src2: %u, dst: %u", this->tmp->src1, this->tmp->src2, this->tmp->dst);
-//    LOG_D("retVal: %ld", this->retVal->j);
-//    LOG_D("exception: %p", this->curException);
-//    LOG_D("val_1: 0x%016lx, val_2: 0x%016lx", this->tmp->val_1.u8, this->tmp->val_2.u8);
-//    LOG_D("pc: %u, cur insns: 0x%02x", this->pc_cur(), this->fetch_op());
-//    LOG_D("state: %u", this->state);
+    LOG_D("current method: %s#%s", this->method->clazzDescriptor, this->method->name);
+    for (int i = 0; i < this->method->code->registersSize; ++i) {
+        LOG_D("reg[%d]: 0x%016lx", i, this->reg[i].u8);
+    }
+
+    LOG_D("src1: 0x%04x, src2: 0x%04x, dst: 0x%04x",
+          this->tmp->src1, this->tmp->src2, this->tmp->dst);
+    LOG_D("retVal: %ld", this->retVal->j);
+    LOG_D("exception: %p", this->curException);
+    LOG_D("val_1: 0x%016lx, val_2: 0x%016lx", this->tmp->val_1.u8, this->tmp->val_2.u8);
+    LOG_D("pc: %u, cur insns: 0x%02x", this->pc_cur(), this->fetch_op());
+    LOG_D("state: %u", this->state);
 }
 
+#if defined(VM_DEBUG_FULL)
 void VmMethodContext::printMethodInsns() const {
-//    LOG_D("current method: %s#%s", this->method->clazzDescriptor, this->method->name);
-//    for (int i = 0; i < this->method->code->insnsSize; ++i) {
-//        LOG_D("insns[%2d]: 0x%04x", i, this->method->code->insns[i]);
-//    }
+    LOG_D_VM("current method: %s#%s", this->method->clazzDescriptor, this->method->name);
+    for (int i = 0; i < this->method->code->insnsSize; ++i) {
+        LOG_D_VM("insns[%2d]: 0x%04x", i, this->method->code->insns[i]);
+    }
 }
-
 #endif
 
+uint32_t VmMethodContext::regCacheKey = 0;
+uint32_t VmMethodContext::methodCacheKey = 0;
+
 void VmMethodContext::resetWithoutParams(jmethodID methodId, jvalue *pResult) {
-    this->method = new VmMethod(methodId, true);
+    if (VmMethodContext::regCacheKey == 0 || VmMethodContext::methodCacheKey == 0) {
+        assert(VmMethodContext::regCacheKey == 0);
+        assert(VmMethodContext::methodCacheKey == 0);
+        VmMethodContext::regCacheKey = VM_CONTEXT::vm->newCacheType(sizeof(RegValue));
+        VmMethodContext::methodCacheKey = VM_CONTEXT::vm->newCacheType(sizeof(VmMethod));
+    }
+    assert(VmMethodContext::regCacheKey != 0);
+    assert(VmMethodContext::methodCacheKey != 0);
+
+    this->method = ((VmMethod *) VM_CONTEXT::vm->mallocCache(
+            VmMethodContext::methodCacheKey, 1))->reset(methodId, true);
     assert(this->method->code != nullptr);
     this->retVal = pResult;
-    this->reg = new RegValue[method->code->registersSize]();
+    this->reg = (RegValue *) VM_CONTEXT::vm->mallocCache(
+            VmMethodContext::regCacheKey, this->method->code->registersSize);
     this->pc = 0;
     this->tmp = VM_CONTEXT::vm->getTempDataBuf();
     this->state = VmMethodContextState::Running;
@@ -432,6 +447,6 @@ void VmMethodContext::reset(
 }
 
 void VmMethodContext::release() const {
-    delete this->method;
-    delete[] this->reg;
+    VM_CONTEXT::vm->freeCache(VmMethodContext::methodCacheKey, 1);
+    VM_CONTEXT::vm->freeCache(VmMethodContext::regCacheKey, this->method->code->registersSize);
 }
