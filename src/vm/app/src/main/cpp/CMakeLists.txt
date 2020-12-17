@@ -39,6 +39,7 @@ add_library( # Sets the name of the library.
         vm/base/VmMemory.cpp
 
         vm/interpret/StandardInterpret.cpp
+        # vm/interpret/RegisterInterpret.cpp
         vm/interpret/VmMethodCaller.cpp
         )
 

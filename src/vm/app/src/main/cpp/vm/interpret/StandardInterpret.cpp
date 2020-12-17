@@ -258,19 +258,6 @@ StandardInterpret::StandardInterpret() {
 
 void StandardInterpret::filledNewArray(VmMethodContext *vmc, bool range) {
     JNIEnv *env = VM_CONTEXT::env;
-    vmc->tmp->val_1.u4 = vmc->fetch(1);
-    vmc->tmp->dst = vmc->fetch(2);
-    if (range) {
-        vmc->tmp->src1 = vmc->inst_AA();
-        LOG_D_VM("|filled-new-array-range args=%u @%u {regs=v%u-v%u}",
-                 vmc->tmp->src1, vmc->tmp->val_1.u4, vmc->tmp->dst,
-                 vmc->tmp->dst + vmc->tmp->src1 - 1);
-    } else {
-        vmc->tmp->src1 = vmc->inst_B();
-        LOG_D_VM("|filled-new-array args=%u @%u {regs=%u %u}",
-                 vmc->tmp->src1, vmc->tmp->val_1.u4, vmc->tmp->dst, vmc->inst_A());
-    }
-
     vmc->tmp->val_1.lc = vmc->method->resolveClass(vmc->tmp->val_1.u4);
     if (vmc->tmp->val_1.lc == nullptr) {
         JavaException::throwJavaException(vmc);
@@ -361,7 +348,6 @@ void StandardInterpret::filledNewArray(VmMethodContext *vmc, bool range) {
     }
 
     vmc->retVal->l = vmc->tmp->val_1.l;
-    vmc->pc_off(3);
 }
 
 s4 StandardInterpret::handlePackedSwitch(VmMethodContext *vmc, const u2 *switchData, s4 testVal) {
@@ -742,7 +728,6 @@ void ST_CH_Monitor_Exit::run(VmMethodContext *vmc) {
      * 监视锁清理，以便处理可能由于 Thread.stop() 的既往实现而
      * 抛出的任意异常，同时仍尽力维持适当的监视锁安全机制。
      */
-    vmc->pc_off(1);
     if (!JavaException::checkForNull(vmc, vmc->tmp->val_1.l)) {
         return;
     }
@@ -750,23 +735,24 @@ void ST_CH_Monitor_Exit::run(VmMethodContext *vmc) {
         JavaException::throwJavaException(vmc);
         return;
     }
+    vmc->pc_off(1);
 }
 
 void ST_CH_Check_Cast::run(VmMethodContext *vmc) {
     vmc->tmp->src1 = vmc->inst_AA();
-    vmc->tmp->val_2.u4 = vmc->fetch(1);       /* class to check against */
+    vmc->tmp->val_1.u4 = vmc->fetch(1);       /* class to check against */
     LOG_D_VM("|check-cast v%u,class@%u", vmc->tmp->src1, vmc->tmp->val_2.u4);
-    vmc->tmp->val_1.l = vmc->getRegisterAsObject(vmc->tmp->src1);
-    if (vmc->tmp->val_1.l) {
-        vmc->tmp->val_2.lc = vmc->method->resolveClass(vmc->tmp->val_2.u4);
-        if (vmc->tmp->val_2.lc == nullptr) {
+    vmc->tmp->val_2.l = vmc->getRegisterAsObject(vmc->tmp->src1);
+    if (vmc->tmp->val_2.l) {
+        vmc->tmp->val_1.lc = vmc->method->resolveClass(vmc->tmp->val_1.u4);
+        if (vmc->tmp->val_1.lc == nullptr) {
             JavaException::throwJavaException(vmc);
             return;
         }
-        if (!(*VM_CONTEXT::env).IsInstanceOf(vmc->tmp->val_1.l, vmc->tmp->val_2.lc)) {
+        if (!(*VM_CONTEXT::env).IsInstanceOf(vmc->tmp->val_2.l, vmc->tmp->val_1.lc)) {
             JavaException::throwClassCastException(
                     vmc,
-                    (*VM_CONTEXT::env).GetObjectClass(vmc->tmp->val_1.l), vmc->tmp->val_2.lc);
+                    (*VM_CONTEXT::env).GetObjectClass(vmc->tmp->val_2.l), vmc->tmp->val_1.lc);
             return;
         }
 //        (*VM_CONTEXT::env).DeleteLocalRef(clazz);
@@ -777,20 +763,21 @@ void ST_CH_Check_Cast::run(VmMethodContext *vmc) {
 void ST_CH_Instance_Of::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_A();
     vmc->tmp->src1 = vmc->inst_B();
-    vmc->tmp->val_2.u4 = vmc->fetch(1);
+    vmc->tmp->val_1.u4 = vmc->fetch(1);
     LOG_D_VM("|instance-of v%u,v%u,class@%u",
-             vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->val_2.u4);
-    vmc->tmp->val_1.l = vmc->getRegisterAsObject(vmc->tmp->src1);
-    if (vmc->tmp->val_1.l == nullptr) {
+             vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->val_1.u4);
+    vmc->tmp->val_2.l = vmc->getRegisterAsObject(vmc->tmp->src1);
+    if (vmc->tmp->val_2.l == nullptr) {
         vmc->setRegister(vmc->tmp->dst, 0);
     } else {
-        vmc->tmp->val_2.lc = vmc->method->resolveClass(vmc->tmp->val_2.u4);
-        if (vmc->tmp->val_2.lc == nullptr) {
+        vmc->tmp->val_1.lc = vmc->method->resolveClass(vmc->tmp->val_1.u4);
+        if (vmc->tmp->val_1.lc == nullptr) {
             JavaException::throwJavaException(vmc);
             return;
         }
-        vmc->tmp->val_1.z = (*VM_CONTEXT::env).IsInstanceOf(vmc->tmp->val_1.l, vmc->tmp->val_2.lc);
-        vmc->setRegister(vmc->tmp->dst, vmc->tmp->val_1.z);
+        vmc->tmp->val_2.z = (*VM_CONTEXT::env).IsInstanceOf(
+                vmc->tmp->val_1.l, vmc->tmp->val_1.lc);
+        vmc->setRegister(vmc->tmp->dst, vmc->tmp->val_2.z);
     }
 //    (*VM_CONTEXT::env).DeleteLocalRef(clazz);
     vmc->pc_off(2);
@@ -799,9 +786,9 @@ void ST_CH_Instance_Of::run(VmMethodContext *vmc) {
 void ST_CH_Array_Length::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_A();
     vmc->tmp->src1 = vmc->inst_B();
+    LOG_D_VM("|array-length v%u,v%u",
+             vmc->tmp->dst, vmc->tmp->src1);
     vmc->tmp->val_1.l = vmc->getRegisterAsObject(vmc->tmp->src1);
-    LOG_D_VM("|array-length v%u,v%u  (%p)",
-             vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->val_1.l);
     if (!JavaException::checkForNull(vmc, vmc->tmp->val_1.l)) {
         return;
     }
@@ -850,19 +837,30 @@ void ST_CH_New_Array::run(VmMethodContext *vmc) {
 }
 
 void ST_CH_Filled_New_Array::run(VmMethodContext *vmc) {
-    LOG_D_VM("|filled_new_array");
+    vmc->tmp->val_1.u4 = vmc->fetch(1);
+    vmc->tmp->dst = vmc->fetch(2);
+    vmc->tmp->src1 = vmc->inst_B();
+    LOG_D_VM("|filled-new-array args=%u @%u {regs=%u %u}",
+             vmc->tmp->src1, vmc->tmp->val_1.u4, vmc->tmp->dst, vmc->inst_A());
     StandardInterpret::filledNewArray(vmc, false);
+    vmc->pc_off(3);
 }
 
 void ST_CH_Filled_New_Array_Range::run(VmMethodContext *vmc) {
-    LOG_D_VM("|filled_new_array_range");
+    vmc->tmp->val_1.u4 = vmc->fetch(1);
+    vmc->tmp->dst = vmc->fetch(2);
+    vmc->tmp->src1 = vmc->inst_AA();
+    LOG_D_VM("|filled-new-array-range args=%u @%u {regs=v%u-v%u}",
+             vmc->tmp->src1, vmc->tmp->val_1.u4, vmc->tmp->dst,
+             vmc->tmp->dst + vmc->tmp->src1 - 1);
     StandardInterpret::filledNewArray(vmc, true);
+    vmc->pc_off(3);
 }
 
 void ST_CH_Fill_Array_Data::run(VmMethodContext *vmc) {
-    JNIEnv *env = VM_CONTEXT::env;
     vmc->tmp->src1 = vmc->inst_AA();
     vmc->tmp->val_1.u4 = vmc->fetch(1) | (((u4) vmc->fetch(2)) << 16u);
+    JNIEnv *env = VM_CONTEXT::env;
     LOG_D_VM("|fill-array-data v%u +%d", vmc->tmp->src1, vmc->tmp->val_1.s4);
 
     const u2 *data = vmc->arrayData(vmc->tmp->val_1.s4);
@@ -1013,6 +1011,7 @@ void ST_CH_Sparse_Switch::run(VmMethodContext *vmc) {
 void ST_CH_CMPL_Float::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->src2 = vmc->tmp->src1 >> 8u;
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;
     LOG_D_VM("|cmp%s v%u,v%u,v%u", "l-float", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->src2);
@@ -1033,6 +1032,7 @@ void ST_CH_CMPL_Float::run(VmMethodContext *vmc) {
 void ST_CH_CMPG_Float::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->src2 = vmc->tmp->src1 >> 8u;
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;
     LOG_D_VM("|cmp%s v%u,v%u,v%u", "g-float", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->src2);
@@ -1053,6 +1053,7 @@ void ST_CH_CMPG_Float::run(VmMethodContext *vmc) {
 void ST_CH_CMPL_Double::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->src2 = vmc->tmp->src1 >> 8u;
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;
     LOG_D_VM("|cmp%s v%u,v%u,v%u", "l-double", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->src2);
@@ -1073,6 +1074,7 @@ void ST_CH_CMPL_Double::run(VmMethodContext *vmc) {
 void ST_CH_CMPG_Double::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->src2 = vmc->tmp->src1 >> 8u;
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;
     LOG_D_VM("|cmp%s v%u,v%u,v%u", "g-double", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->src2);
@@ -1093,6 +1095,7 @@ void ST_CH_CMPG_Double::run(VmMethodContext *vmc) {
 void ST_CH_CMP_Long::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->src2 = vmc->tmp->src1 >> 8u;
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;
     LOG_D_VM("|cmp%s v%u,v%u,v%u", "-long", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->src2);
@@ -1113,10 +1116,12 @@ void ST_CH_CMP_Long::run(VmMethodContext *vmc) {
 void ST_CH_IF_EQ::run(VmMethodContext *vmc) {
     vmc->tmp->src1 = vmc->inst_A();
     vmc->tmp->src2 = vmc->inst_B();
+    vmc->tmp->dst = vmc->fetch(1);
+
     vmc->tmp->val_1.s4 = (s4) vmc->getRegister(vmc->tmp->src1);
     vmc->tmp->val_2.s4 = (s4) vmc->getRegister(vmc->tmp->src2);
     if (vmc->tmp->val_1.s4 == vmc->tmp->val_2.s4) {
-        vmc->tmp->val_1.s4 = (s2) vmc->fetch(1); /* sign-extended */
+        vmc->tmp->val_1.s4 = (s2) vmc->tmp->dst;    /* sign-extended */
         LOG_D_VM("|if-%s v%u,v%u,+%d",
                  "eq", vmc->tmp->src1, vmc->tmp->src2, vmc->tmp->val_1.s4);
         LOG_D_VM("> branch taken");
@@ -1131,10 +1136,12 @@ void ST_CH_IF_EQ::run(VmMethodContext *vmc) {
 void ST_CH_IF_NE::run(VmMethodContext *vmc) {
     vmc->tmp->src1 = vmc->inst_A();
     vmc->tmp->src2 = vmc->inst_B();
+    vmc->tmp->dst = vmc->fetch(1);
+
     vmc->tmp->val_1.s4 = (s4) vmc->getRegister(vmc->tmp->src1);
     vmc->tmp->val_2.s4 = (s4) vmc->getRegister(vmc->tmp->src2);
     if (vmc->tmp->val_1.s4 != vmc->tmp->val_2.s4) {
-        vmc->tmp->val_1.s4 = (s2) vmc->fetch(1); /* sign-extended */
+        vmc->tmp->val_1.s4 = (s2) vmc->tmp->dst; /* sign-extended */
         LOG_D_VM("|if-%s v%u,v%u,+%d",
                  "ne", vmc->tmp->src1, vmc->tmp->src2, vmc->tmp->val_1.s4);
         LOG_D_VM("> branch taken");
@@ -1149,10 +1156,12 @@ void ST_CH_IF_NE::run(VmMethodContext *vmc) {
 void ST_CH_IF_LT::run(VmMethodContext *vmc) {
     vmc->tmp->src1 = vmc->inst_A();
     vmc->tmp->src2 = vmc->inst_B();
+    vmc->tmp->dst = vmc->fetch(1);
+
     vmc->tmp->val_1.s4 = (s4) vmc->getRegister(vmc->tmp->src1);
     vmc->tmp->val_2.s4 = (s4) vmc->getRegister(vmc->tmp->src2);
     if (vmc->tmp->val_1.s4 < vmc->tmp->val_2.s4) {
-        vmc->tmp->val_1.s4 = (s2) vmc->fetch(1); /* sign-extended */
+        vmc->tmp->val_1.s4 = (s2) vmc->tmp->dst; /* sign-extended */
         LOG_D_VM("|if-%s v%u,v%u,+%d",
                  "lt", vmc->tmp->src1, vmc->tmp->src2, vmc->tmp->val_1.s4);
         LOG_D_VM("> branch taken");
@@ -1167,10 +1176,12 @@ void ST_CH_IF_LT::run(VmMethodContext *vmc) {
 void ST_CH_IF_LE::run(VmMethodContext *vmc) {
     vmc->tmp->src1 = vmc->inst_A();
     vmc->tmp->src2 = vmc->inst_B();
+    vmc->tmp->dst = vmc->fetch(1);
+
     vmc->tmp->val_1.s4 = (s4) vmc->getRegister(vmc->tmp->src1);
     vmc->tmp->val_2.s4 = (s4) vmc->getRegister(vmc->tmp->src2);
     if (vmc->tmp->val_1.s4 <= vmc->tmp->val_2.s4) {
-        vmc->tmp->val_1.s4 = (s2) vmc->fetch(1); /* sign-extended */
+        vmc->tmp->val_1.s4 = (s2) vmc->tmp->dst; /* sign-extended */
         LOG_D_VM("|if-%s v%u,v%u,+%d",
                  "le", vmc->tmp->src1, vmc->tmp->src2, vmc->tmp->val_1.s4);
         LOG_D_VM("> branch taken");
@@ -1185,10 +1196,12 @@ void ST_CH_IF_LE::run(VmMethodContext *vmc) {
 void ST_CH_IF_GT::run(VmMethodContext *vmc) {
     vmc->tmp->src1 = vmc->inst_A();
     vmc->tmp->src2 = vmc->inst_B();
+    vmc->tmp->dst = vmc->fetch(1);
+
     vmc->tmp->val_1.s4 = (s4) vmc->getRegister(vmc->tmp->src1);
     vmc->tmp->val_2.s4 = (s4) vmc->getRegister(vmc->tmp->src2);
     if (vmc->tmp->val_1.s4 > vmc->tmp->val_2.s4) {
-        vmc->tmp->val_1.s4 = (s2) vmc->fetch(1); /* sign-extended */
+        vmc->tmp->val_1.s4 = (s2) vmc->tmp->dst; /* sign-extended */
         LOG_D_VM("|if-%s v%u,v%u,+%d",
                  "gt", vmc->tmp->src1, vmc->tmp->src2, vmc->tmp->val_1.s4);
         LOG_D_VM("> branch taken");
@@ -1203,10 +1216,12 @@ void ST_CH_IF_GT::run(VmMethodContext *vmc) {
 void ST_CH_IF_GE::run(VmMethodContext *vmc) {
     vmc->tmp->src1 = vmc->inst_A();
     vmc->tmp->src2 = vmc->inst_B();
+    vmc->tmp->dst = vmc->fetch(1);
+
     vmc->tmp->val_1.s4 = (s4) vmc->getRegister(vmc->tmp->src1);
     vmc->tmp->val_2.s4 = (s4) vmc->getRegister(vmc->tmp->src2);
     if (vmc->tmp->val_1.s4 >= vmc->tmp->val_2.s4) {
-        vmc->tmp->val_1.s4 = (s2) vmc->fetch(1); /* sign-extended */
+        vmc->tmp->val_1.s4 = (s2) vmc->tmp->dst; /* sign-extended */
         LOG_D_VM("|if-%s v%u,v%u,+%d",
                  "ge", vmc->tmp->src1, vmc->tmp->src2, vmc->tmp->val_1.s4);
         LOG_D_VM("> branch taken");
@@ -1220,8 +1235,8 @@ void ST_CH_IF_GE::run(VmMethodContext *vmc) {
 
 void ST_CH_IF_EQZ::run(VmMethodContext *vmc) {
     vmc->tmp->src1 = vmc->inst_A();
+    vmc->tmp->val_1.s4 = (s2) vmc->fetch(1); /* sign-extended */
     if ((s4) vmc->getRegister(vmc->tmp->src1) == 0) {
-        vmc->tmp->val_1.s4 = (s2) vmc->fetch(1); /* sign-extended */
         LOG_D_VM("|if-%s v%u,v%u",
                  "eqz", vmc->tmp->src1, vmc->tmp->val_1.s4);
         LOG_D_VM("> branch taken");
@@ -1234,8 +1249,9 @@ void ST_CH_IF_EQZ::run(VmMethodContext *vmc) {
 
 void ST_CH_IF_NEZ::run(VmMethodContext *vmc) {
     vmc->tmp->src1 = vmc->inst_A();
+    vmc->tmp->src2 = vmc->fetch(1);
     if ((s4) vmc->getRegister(vmc->tmp->src1) != 0) {
-        vmc->tmp->val_1.s4 = (s2) vmc->fetch(1); /* sign-extended */
+        vmc->tmp->val_1.s4 = (s2) vmc->tmp->src2; /* sign-extended */
         LOG_D_VM("|if-%s v%u,v%u",
                  "nez", vmc->tmp->src1, vmc->tmp->val_1.s4);
         LOG_D_VM("> branch taken");
@@ -1248,8 +1264,9 @@ void ST_CH_IF_NEZ::run(VmMethodContext *vmc) {
 
 void ST_CH_IF_LTZ::run(VmMethodContext *vmc) {
     vmc->tmp->src1 = vmc->inst_A();
+    vmc->tmp->src2 = vmc->fetch(1);
     if ((s4) vmc->getRegister(vmc->tmp->src1) < 0) {
-        vmc->tmp->val_1.s4 = (s2) vmc->fetch(1); /* sign-extended */
+        vmc->tmp->val_1.s4 = (s2) vmc->tmp->src2; /* sign-extended */
         LOG_D_VM("|if-%s v%u,v%u",
                  "ltz", vmc->tmp->src1, vmc->tmp->val_1.s4);
         LOG_D_VM("> branch taken");
@@ -1262,8 +1279,9 @@ void ST_CH_IF_LTZ::run(VmMethodContext *vmc) {
 
 void ST_CH_IF_GEZ::run(VmMethodContext *vmc) {
     vmc->tmp->src1 = vmc->inst_A();
+    vmc->tmp->src2 = vmc->fetch(1);
     if ((s4) vmc->getRegister(vmc->tmp->src1) >= 0) {
-        vmc->tmp->val_1.s4 = (s2) vmc->fetch(1); /* sign-extended */
+        vmc->tmp->val_1.s4 = (s2) vmc->tmp->src2; /* sign-extended */
         LOG_D_VM("|if-%s v%u,v%u",
                  "gez", vmc->tmp->src1, vmc->tmp->val_1.s4);
         LOG_D_VM("> branch taken");
@@ -1276,8 +1294,9 @@ void ST_CH_IF_GEZ::run(VmMethodContext *vmc) {
 
 void ST_CH_IF_GTZ::run(VmMethodContext *vmc) {
     vmc->tmp->src1 = vmc->inst_A();
+    vmc->tmp->src2 = vmc->fetch(1);
     if ((s4) vmc->getRegister(vmc->tmp->src1) > 0) {
-        vmc->tmp->val_1.s4 = (s2) vmc->fetch(1); /* sign-extended */
+        vmc->tmp->val_1.s4 = (s2) vmc->tmp->src2; /* sign-extended */
         LOG_D_VM("|if-%s v%u,v%u",
                  "gtz", vmc->tmp->src1, vmc->tmp->val_1.s4);
         LOG_D_VM("> branch taken");
@@ -1290,8 +1309,9 @@ void ST_CH_IF_GTZ::run(VmMethodContext *vmc) {
 
 void ST_CH_IF_LEZ::run(VmMethodContext *vmc) {
     vmc->tmp->src1 = vmc->inst_A();
+    vmc->tmp->src2 = vmc->fetch(1);
     if ((s4) vmc->getRegister(vmc->tmp->src1) <= 0) {
-        vmc->tmp->val_1.s4 = (s2) vmc->fetch(1); /* sign-extended */
+        vmc->tmp->val_1.s4 = (s2) vmc->tmp->src2; /* sign-extended */
         LOG_D_VM("|if-%s v%u,v%u",
                  "lez", vmc->tmp->src1, vmc->tmp->val_1.s4);
         LOG_D_VM("> branch taken");
@@ -1305,6 +1325,7 @@ void ST_CH_IF_LEZ::run(VmMethodContext *vmc) {
 void ST_CH_Aget::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->src2 = vmc->tmp->src1 >> 8u;    /* index */
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;  /* array ptr */
     LOG_D_VM("aget%s v%u,v%u,v%u",
@@ -1332,6 +1353,7 @@ void ST_CH_Aget::run(VmMethodContext *vmc) {
 void ST_CH_Aget_Wide::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->src2 = vmc->tmp->src1 >> 8u;    /* index */
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;  /* array ptr */
     LOG_D_VM("aget%s v%u,v%u,v%u",
@@ -1359,6 +1381,7 @@ void ST_CH_Aget_Wide::run(VmMethodContext *vmc) {
 void ST_CH_Aget_Object::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->src2 = vmc->tmp->src1 >> 8u;    /* index */
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;  /* array ptr */
     LOG_D_VM("|aget%s v%u,v%u,v%u",
@@ -1385,6 +1408,7 @@ void ST_CH_Aget_Object::run(VmMethodContext *vmc) {
 void ST_CH_Aget_Boolean::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->src2 = vmc->tmp->src1 >> 8u;    /* index */
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;  /* array ptr */
     LOG_D_VM("aget%s v%u,v%u,v%u",
@@ -1412,6 +1436,7 @@ void ST_CH_Aget_Boolean::run(VmMethodContext *vmc) {
 void ST_CH_Aget_Byte::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->src2 = vmc->tmp->src1 >> 8u;    /* index */
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;  /* array ptr */
     LOG_D_VM("aget%s v%u,v%u,v%u",
@@ -1439,6 +1464,7 @@ void ST_CH_Aget_Byte::run(VmMethodContext *vmc) {
 void ST_CH_Aget_Char::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->src2 = vmc->tmp->src1 >> 8u;    /* index */
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;  /* array ptr */
     LOG_D_VM("aget%s v%u,v%u,v%u",
@@ -1466,6 +1492,7 @@ void ST_CH_Aget_Char::run(VmMethodContext *vmc) {
 void ST_CH_Aget_Short::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->src2 = vmc->tmp->src1 >> 8u;    /* index */
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;  /* array ptr */
     LOG_D_VM("aget%s v%u,v%u,v%u",
@@ -1493,6 +1520,7 @@ void ST_CH_Aget_Short::run(VmMethodContext *vmc) {
 void ST_CH_Aput::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();      /* AA: source value */
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->src2 = vmc->tmp->src1 >> 8u;    /* index */
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;  /* array ptr */
     LOG_D_VM("aget%s v%u,v%u,v%u",
@@ -1520,6 +1548,7 @@ void ST_CH_Aput::run(VmMethodContext *vmc) {
 void ST_CH_Aput_Wide::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();      /* AA: source value */
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->src2 = vmc->tmp->src1 >> 8u;    /* index */
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;  /* array ptr */
     LOG_D_VM("aget%s v%u,v%u,v%u",
@@ -1548,6 +1577,7 @@ void ST_CH_Aput_Wide::run(VmMethodContext *vmc) {
 void ST_CH_Aput_Object::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();      /* AA: source value */
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->src2 = vmc->tmp->src1 >> 8u;    /* index */
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;  /* array ptr */
     LOG_D_VM("aget%s v%u,v%u,v%u", "-object", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->src2);
@@ -1572,6 +1602,7 @@ void ST_CH_Aput_Object::run(VmMethodContext *vmc) {
 void ST_CH_Aput_Boolean::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();      /* AA: source value */
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->src2 = vmc->tmp->src1 >> 8u;    /* index */
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;  /* array ptr */
     LOG_D_VM("aget%s v%u,v%u,v%u",
@@ -1599,6 +1630,7 @@ void ST_CH_Aput_Boolean::run(VmMethodContext *vmc) {
 void ST_CH_Aput_Byte::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();      /* AA: source value */
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->src2 = vmc->tmp->src1 >> 8u;    /* index */
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;  /* array ptr */
     LOG_D_VM("aget%s v%u,v%u,v%u",
@@ -1626,6 +1658,7 @@ void ST_CH_Aput_Byte::run(VmMethodContext *vmc) {
 void ST_CH_Aput_Char::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();      /* AA: source value */
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->src2 = vmc->tmp->src1 >> 8u;    /* index */
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;  /* array ptr */
     LOG_D_VM("aget%s v%u,v%u,v%u",
@@ -1653,6 +1686,7 @@ void ST_CH_Aput_Char::run(VmMethodContext *vmc) {
 void ST_CH_Aput_Short::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();      /* AA: source value */
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->src2 = vmc->tmp->src1 >> 8u;    /* index */
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;  /* array ptr */
     LOG_D_VM("aget%s v%u,v%u,v%u",
@@ -2439,6 +2473,7 @@ void ST_CH_Float2Int::run(VmMethodContext *vmc) {
         vmc->tmp->val_2.i = (jint) vmc->tmp->val_1.f;
     }
     vmc->setRegisterInt(vmc->tmp->dst, vmc->tmp->val_2.i);
+    vmc->pc_off(1);
 }
 
 void ST_CH_Float2Long::run(VmMethodContext *vmc) {
@@ -2458,6 +2493,7 @@ void ST_CH_Float2Long::run(VmMethodContext *vmc) {
         vmc->tmp->val_2.j = (jint) vmc->tmp->val_1.f;
     }
     vmc->setRegisterLong(vmc->tmp->dst, vmc->tmp->val_2.j);
+    vmc->pc_off(1);
 }
 
 void ST_CH_Float2Double::run(VmMethodContext *vmc) {
@@ -2485,6 +2521,7 @@ void ST_CH_Double2Int::run(VmMethodContext *vmc) {
         vmc->tmp->val_2.i = (jint) vmc->tmp->val_1.d;
     }
     vmc->setRegisterInt(vmc->tmp->dst, vmc->tmp->val_2.i);
+    vmc->pc_off(1);
 }
 
 void ST_CH_Double2Long::run(VmMethodContext *vmc) {
@@ -2504,6 +2541,7 @@ void ST_CH_Double2Long::run(VmMethodContext *vmc) {
         vmc->tmp->val_2.j = (jint) vmc->tmp->val_1.d;
     }
     vmc->setRegisterLong(vmc->tmp->dst, vmc->tmp->val_2.j);
+    vmc->pc_off(1);
 }
 
 void ST_CH_Double2Float::run(VmMethodContext *vmc) {
@@ -2541,6 +2579,7 @@ void ST_CH_Int2Short::run(VmMethodContext *vmc) {
 void ST_CH_Add_Int::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->src2 = vmc->tmp->src1 >> 8u;
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;
     LOG_D_VM("|%s-int v%u,v%u,v%u", "add", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->src2);
@@ -2553,6 +2592,7 @@ void ST_CH_Add_Int::run(VmMethodContext *vmc) {
 void ST_CH_Sub_Int::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->src2 = vmc->tmp->src1 >> 8u;
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;
     LOG_D_VM("|%s-int v%u,v%u,v%u", "sub", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->src2);
@@ -2565,6 +2605,7 @@ void ST_CH_Sub_Int::run(VmMethodContext *vmc) {
 void ST_CH_Mul_Int::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->src2 = vmc->tmp->src1 >> 8u;
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;
     LOG_D_VM("|%s-int v%u,v%u,v%u", "mul", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->src2);
@@ -2577,6 +2618,7 @@ void ST_CH_Mul_Int::run(VmMethodContext *vmc) {
 void ST_CH_Div_Int::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->src2 = vmc->tmp->src1 >> 8u;
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;
     LOG_D_VM("|%s-int v%u,v%u,v%u", "div", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->src2);
@@ -2598,6 +2640,7 @@ void ST_CH_Div_Int::run(VmMethodContext *vmc) {
 void ST_CH_Rem_Int::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->src2 = vmc->tmp->src1 >> 8u;
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;
     LOG_D_VM("|%s-int v%u,v%u,v%u", "rem", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->src2);
@@ -2619,6 +2662,7 @@ void ST_CH_Rem_Int::run(VmMethodContext *vmc) {
 void ST_CH_And_Int::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->src2 = vmc->tmp->src1 >> 8u;
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;
     LOG_D_VM("|%s-int v%u,v%u,v%u", "and", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->src2);
@@ -2631,6 +2675,7 @@ void ST_CH_And_Int::run(VmMethodContext *vmc) {
 void ST_CH_Or_Int::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->src2 = vmc->tmp->src1 >> 8u;
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;
     LOG_D_VM("|%s-int v%u,v%u,v%u", "or", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->src2);
@@ -2643,6 +2688,7 @@ void ST_CH_Or_Int::run(VmMethodContext *vmc) {
 void ST_CH_Xor_Int::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->src2 = vmc->tmp->src1 >> 8u;
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;
     LOG_D_VM("|%s-int v%u,v%u,v%u", "xor", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->src2);
@@ -2655,6 +2701,7 @@ void ST_CH_Xor_Int::run(VmMethodContext *vmc) {
 void ST_CH_Shl_Int::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->src2 = vmc->tmp->src1 >> 8u;
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;
     LOG_D_VM("|%s-int v%u,v%u,v%u", "shl", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->src2);
@@ -2667,6 +2714,7 @@ void ST_CH_Shl_Int::run(VmMethodContext *vmc) {
 void ST_CH_Shr_Int::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->src2 = vmc->tmp->src1 >> 8u;
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;
     LOG_D_VM("|%s-int v%u,v%u,v%u", "shr", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->src2);
@@ -2679,6 +2727,7 @@ void ST_CH_Shr_Int::run(VmMethodContext *vmc) {
 void ST_CH_Ushr_Int::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->src2 = vmc->tmp->src1 >> 8u;
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;
     LOG_D_VM("|%s-int v%u,v%u,v%u", "ushr", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->src2);
@@ -2691,6 +2740,7 @@ void ST_CH_Ushr_Int::run(VmMethodContext *vmc) {
 void ST_CH_Add_Long::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->src2 = vmc->tmp->src1 >> 8u;
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;
     LOG_D_VM("|%s-long v%u,v%u,v%u", "add", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->src2);
@@ -2703,6 +2753,7 @@ void ST_CH_Add_Long::run(VmMethodContext *vmc) {
 void ST_CH_Sub_Long::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->src2 = vmc->tmp->src1 >> 8u;
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;
     LOG_D_VM("|%s-long v%u,v%u,v%u", "sub", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->src2);
@@ -2715,6 +2766,7 @@ void ST_CH_Sub_Long::run(VmMethodContext *vmc) {
 void ST_CH_Mul_Long::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->src2 = vmc->tmp->src1 >> 8u;
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;
     LOG_D_VM("|%s-long v%u,v%u,v%u", "mul", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->src2);
@@ -2727,6 +2779,7 @@ void ST_CH_Mul_Long::run(VmMethodContext *vmc) {
 void ST_CH_Div_Long::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->src2 = vmc->tmp->src1 >> 8u;
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;
     LOG_D_VM("|%s-long v%u,v%u,v%u", "div", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->src2);
@@ -2748,6 +2801,7 @@ void ST_CH_Div_Long::run(VmMethodContext *vmc) {
 void ST_CH_Rem_Long::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->src2 = vmc->tmp->src1 >> 8u;
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;
     LOG_D_VM("|%s-long v%u,v%u,v%u", "rem", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->src2);
@@ -2769,6 +2823,7 @@ void ST_CH_Rem_Long::run(VmMethodContext *vmc) {
 void ST_CH_And_Long::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->src2 = vmc->tmp->src1 >> 8u;
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;
     LOG_D_VM("|%s-long v%u,v%u,v%u", "and", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->src2);
@@ -2781,6 +2836,7 @@ void ST_CH_And_Long::run(VmMethodContext *vmc) {
 void ST_CH_Or_Long::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->src2 = vmc->tmp->src1 >> 8u;
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;
     LOG_D_VM("|%s-long v%u,v%u,v%u", "or", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->src2);
@@ -2793,6 +2849,7 @@ void ST_CH_Or_Long::run(VmMethodContext *vmc) {
 void ST_CH_Xor_Long::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->src2 = vmc->tmp->src1 >> 8u;
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;
     LOG_D_VM("|%s-long v%u,v%u,v%u", "xor", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->src2);
@@ -2805,6 +2862,7 @@ void ST_CH_Xor_Long::run(VmMethodContext *vmc) {
 void ST_CH_Shl_Long::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->src2 = vmc->tmp->src1 >> 8u;
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;
     LOG_D_VM("|%s-long v%u,v%u,v%u", "shl", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->src2);
@@ -2817,6 +2875,7 @@ void ST_CH_Shl_Long::run(VmMethodContext *vmc) {
 void ST_CH_Shr_Long::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->src2 = vmc->tmp->src1 >> 8u;
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;
     LOG_D_VM("|%s-long v%u,v%u,v%u", "shr", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->src2);
@@ -2829,6 +2888,7 @@ void ST_CH_Shr_Long::run(VmMethodContext *vmc) {
 void ST_CH_Ushr_Long::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->src2 = vmc->tmp->src1 >> 8u;
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;
     LOG_D_VM("|%s-long v%u,v%u,v%u", "ushr", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->src2);
@@ -2841,6 +2901,7 @@ void ST_CH_Ushr_Long::run(VmMethodContext *vmc) {
 void ST_CH_Add_Float::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->src2 = vmc->tmp->src1 >> 8u;
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;
     LOG_D_VM("|%s-float v%u,v%u,v%u", "add", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->src2);
@@ -2853,6 +2914,7 @@ void ST_CH_Add_Float::run(VmMethodContext *vmc) {
 void ST_CH_Sub_Float::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->src2 = vmc->tmp->src1 >> 8u;
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;
     LOG_D_VM("|%s-float v%u,v%u,v%u", "sub", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->src2);
@@ -2865,6 +2927,7 @@ void ST_CH_Sub_Float::run(VmMethodContext *vmc) {
 void ST_CH_Mul_Float::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->src2 = vmc->tmp->src1 >> 8u;
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;
     LOG_D_VM("|%s-float v%u,v%u,v%u", "mul", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->src2);
@@ -2877,6 +2940,7 @@ void ST_CH_Mul_Float::run(VmMethodContext *vmc) {
 void ST_CH_Div_Float::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->src2 = vmc->tmp->src1 >> 8u;
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;
     LOG_D_VM("|%s-float v%u,v%u,v%u", "div", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->src2);
@@ -2889,6 +2953,7 @@ void ST_CH_Div_Float::run(VmMethodContext *vmc) {
 void ST_CH_Rem_Float::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->src2 = vmc->tmp->src1 >> 8u;
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;
     LOG_D_VM("|%s-float v%u,v%u,v%u", "rem", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->src2);
@@ -2901,6 +2966,7 @@ void ST_CH_Rem_Float::run(VmMethodContext *vmc) {
 void ST_CH_Add_Double::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->src2 = vmc->tmp->src1 >> 8u;
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;
     LOG_D_VM("|%s-double v%u,v%u,v%u", "add", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->src2);
@@ -2913,6 +2979,7 @@ void ST_CH_Add_Double::run(VmMethodContext *vmc) {
 void ST_CH_Sub_Double::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->src2 = vmc->tmp->src1 >> 8u;
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;
     LOG_D_VM("|%s-double v%u,v%u,v%u", "sub", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->src2);
@@ -2925,6 +2992,7 @@ void ST_CH_Sub_Double::run(VmMethodContext *vmc) {
 void ST_CH_Mul_Double::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->src2 = vmc->tmp->src1 >> 8u;
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;
     LOG_D_VM("|%s-double v%u,v%u,v%u", "mul", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->src2);
@@ -2937,6 +3005,7 @@ void ST_CH_Mul_Double::run(VmMethodContext *vmc) {
 void ST_CH_Div_Double::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->src2 = vmc->tmp->src1 >> 8u;
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;
     LOG_D_VM("|%s-double v%u,v%u,v%u", "div", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->src2);
@@ -2949,6 +3018,7 @@ void ST_CH_Div_Double::run(VmMethodContext *vmc) {
 void ST_CH_Rem_Double::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->src2 = vmc->tmp->src1 >> 8u;
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;
     LOG_D_VM("|%s-double v%u,v%u,v%u", "rem", vmc->tmp->dst, vmc->tmp->src1, vmc->tmp->src2);
@@ -3429,6 +3499,7 @@ void ST_CH_Xor_Int_Lit16::run(VmMethodContext *vmc) {
 void ST_CH_Add_Int_Lit8::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->val_1.u1 = vmc->tmp->src1 >> 8u;
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;
     LOG_D_VM("%s-int/lit8 v%u,v%u,#%d",
@@ -3442,6 +3513,7 @@ void ST_CH_Add_Int_Lit8::run(VmMethodContext *vmc) {
 void ST_CH_RSub_Int_Lit8::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->val_1.u1 = vmc->tmp->src1 >> 8u;
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;
     LOG_D_VM("%s-int/lit8 v%u,v%u,#%d",
@@ -3455,6 +3527,7 @@ void ST_CH_RSub_Int_Lit8::run(VmMethodContext *vmc) {
 void ST_CH_Mul_Int_Lit8::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->val_1.u1 = vmc->tmp->src1 >> 8u;
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;
     LOG_D_VM("%s-int/lit8 v%u,v%u,#%d",
@@ -3468,6 +3541,7 @@ void ST_CH_Mul_Int_Lit8::run(VmMethodContext *vmc) {
 void ST_CH_Div_Int_Lit8::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->val_2.u1 = vmc->tmp->src1 >> 8u;
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;
     LOG_D_VM("%s-int/lit8 v%u,v%u,#%d",
@@ -3489,6 +3563,7 @@ void ST_CH_Div_Int_Lit8::run(VmMethodContext *vmc) {
 void ST_CH_Rem_Int_Lit8::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->val_2.u1 = vmc->tmp->src1 >> 8u;
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;
     LOG_D_VM("%s-int/lit8 v%u,v%u,#%d",
@@ -3510,6 +3585,7 @@ void ST_CH_Rem_Int_Lit8::run(VmMethodContext *vmc) {
 void ST_CH_And_Int_Lit8::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->val_1.u1 = vmc->tmp->src1 >> 8u;
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;
     LOG_D_VM("%s-int/lit8 v%u,v%u,#%d",
@@ -3523,6 +3599,7 @@ void ST_CH_And_Int_Lit8::run(VmMethodContext *vmc) {
 void ST_CH_Or_Int_Lit8::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->val_1.u1 = vmc->tmp->src1 >> 8u;
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;
     LOG_D_VM("%s-int/lit8 v%u,v%u,#%d",
@@ -3536,6 +3613,7 @@ void ST_CH_Or_Int_Lit8::run(VmMethodContext *vmc) {
 void ST_CH_Xor_Int_Lit8::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->val_1.u1 = vmc->tmp->src1 >> 8u;
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;
     LOG_D_VM("%s-int/lit8 v%u,v%u,#%d",
@@ -3549,6 +3627,7 @@ void ST_CH_Xor_Int_Lit8::run(VmMethodContext *vmc) {
 void ST_CH_Shl_Int_Lit8::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->val_1.u1 = vmc->tmp->src1 >> 8u;
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;
     LOG_D_VM("%s-int/lit8 v%u,v%u,#%d",
@@ -3562,6 +3641,7 @@ void ST_CH_Shl_Int_Lit8::run(VmMethodContext *vmc) {
 void ST_CH_Shr_Int_Lit8::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->val_1.u1 = vmc->tmp->src1 >> 8u;
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;
     LOG_D_VM("%s-int/lit8 v%u,v%u,#%d",
@@ -3575,6 +3655,7 @@ void ST_CH_Shr_Int_Lit8::run(VmMethodContext *vmc) {
 void ST_CH_Ushr_Int_Lit8::run(VmMethodContext *vmc) {
     vmc->tmp->dst = vmc->inst_AA();
     vmc->tmp->src1 = vmc->fetch(1);
+
     vmc->tmp->val_1.u1 = vmc->tmp->src1 >> 8u;
     vmc->tmp->src1 = vmc->tmp->src1 & 0xffu;
     LOG_D_VM("%s-int/lit8 v%u,v%u,#%d",
@@ -3818,3 +3899,5 @@ void ST_CH_Sput_Object_Volatile::run(VmMethodContext *vmc) {
              vmc->getRegisterAsObject(vmc->tmp->dst));
     vmc->pc_off(2);
 }
+
+

@@ -82,7 +82,7 @@ class VmKeyFuncCodeFile:
 
         self.log = logging.getLogger(VmKeyFuncCodeFile.__name__)
 
-    def add_method(self, method: dex_file.EncodedMethod):
+    def append(self, method: dex_file.EncodedMethod):
         code = VKFC_Code(method.code.wrap_to_key_func())
         self.code.append(code)
         index = VKFC_Index(method.method_idx, code)
@@ -93,6 +93,10 @@ class VmKeyFuncCodeFile:
         for i in range(method.code.insns_size):
             self.log.debug("insns[%2d]: 0x%04x", i, bin_insns[i])
         self.log.debug("end key function's insns.")
+
+    def extends(self, methods: List[dex_file.EncodedMethod]):
+        for m in methods:
+            self.append(m)
 
     def to_bytes(self) -> bytes:
         buf = bytearray()

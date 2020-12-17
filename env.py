@@ -14,9 +14,15 @@ TEST_APP_ROOT = os.path.join(TEST_ROOT, r'TestApp')
 # TEST_APP_ROOT = r'/Users/chenzelun/AndroidProjects/MyApplication'
 
 VM_APP_ROOT = os.path.join(ROOT_PATH, r'src', r'vm')
-KEY_FUNC_JNI_ROOT = os.path.join(VM_APP_ROOT, r'app', r'src', r'main', r'cpp')
+VM_APP_CPP_ROOT = os.path.join(VM_APP_ROOT, r'app', r'src', r'main', r'cpp')
+KEY_FUNC_JNI_ROOT = VM_APP_CPP_ROOT
 KEY_FUNC_JNI_H_NAME = r'KeyFuncJni.h'
 KEY_FUNC_JNI_CPP_NAME = r'KeyFuncJni.cpp'
+
+REGISTER_INTERPRET_ROOT = os.path.join(VM_APP_CPP_ROOT, r'vm', r'interpret')
+REGISTER_INTERPRET_H_NAME = r'RegisterInterpret.h'
+REGISTER_INTERPRET_CPP_NAME = r'RegisterInterpret.cpp'
+
 VM_DATA_KEY_FUNC_CODE_FILE_NAME = r'code'
 
 RES_KEY_STORE_PATH = os.path.join(

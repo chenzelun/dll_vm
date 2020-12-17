@@ -295,10 +295,9 @@ class Pool(Writeable):
     def __init__(self, map_item: MapItem, val_type: type):
         super().__init__()
         self.__order: List[int] = []
-        self.__map: Dict[int,
-                         Union[Writeable,
-                               StringIdItem,
-                               TypeIdItem]] = {}
+        self.__map: Dict[int, Union[Writeable,
+                                    StringIdItem,
+                                    TypeIdItem]] = {}
         self.__map_item = map_item
         self.__val_type = val_type
 
@@ -1847,14 +1846,18 @@ class MapList(Writeable):
 class DexFile:
     def __init__(self):
         super().__init__()
-        self.header: Optional[Header] = None
-        self.map_list: Optional[MapList] = None
+        self.__header: Optional[Header] = None
+        self.__map_list: Optional[MapList] = None
         self.log = logging.getLogger(DexFile.__name__)
 
+    @property
+    def map_list(self):
+        return self.__map_list
+
     def parse(self, buf: bytes):
-        self.header = Header().parse(buf, Pointer(0))
+        self.__header = Header().parse(buf, Pointer(0))
         self.log.debug(r'parse header')
-        self.map_list = MapList().parse(buf, Pointer(self.header.map_off))
+        self.__map_list = MapList().parse(buf, Pointer(self.__header.map_off))
         self.log.debug(r'parse map list')
 
         self.__parse_pool(MapListItemType.TYPE_STRING_ID_ITEM, buf)
@@ -1873,7 +1876,7 @@ class DexFile:
 
     def __parse_pool(self, item_type: MapListItemType, buf: bytes):
         assert item_type in INDEX_POOL_TYPE
-        map_item = self.map_list.map[item_type]
+        map_item = self.__map_list.map[item_type]
         map_item.data.parse(buf, Pointer(map_item.data_offset))
 
     @staticmethod
@@ -1883,8 +1886,8 @@ class DexFile:
         return DexFile().parse(buf)
 
     def pool_to_bytes_if_exist(self, item_type: MapListItemType, buf: bytearray, pr: Pointer):
-        if item_type in self.map_list.map:
-            self.map_list.map[item_type].data.to_bytes(buf, pr)
+        if item_type in self.__map_list.map:
+            self.__map_list.map[item_type].data.to_bytes(buf, pr)
 
     def to_bytes(self) -> bytearray:
         index_buf = bytearray()
@@ -1895,8 +1898,8 @@ class DexFile:
         data_pr = Pointer(data_off)
 
         # update header's data_off
-        self.header.data_off = data_off
-        self.header.to_bytes(index_buf, index_pr)
+        self.__header.data_off = data_off
+        self.__header.to_bytes(index_buf, index_pr)
         self.log.debug(r'write header')
 
         self.pool_to_bytes_if_exist(MapListItemType.TYPE_STRING_DATA_ITEM, data_buf, data_pr)
@@ -1916,8 +1919,8 @@ class DexFile:
         self.pool_to_bytes_if_exist(MapListItemType.TYPE_ENCODED_ARRAY_ITEM, data_buf, data_pr)
         self.log.debug(r'write encoded array')
         if env.DELETE_DEBUG_INFO_FROM_DEX:
-            self.map_list.map.pop(MapListItemType.TYPE_DEBUG_INFO_ITEM,
-                                  "don't find key: " + str(MapListItemType.TYPE_DEBUG_INFO_ITEM.value))
+            self.__map_list.map.pop(MapListItemType.TYPE_DEBUG_INFO_ITEM,
+                                    "don't find key: " + str(MapListItemType.TYPE_DEBUG_INFO_ITEM.value))
         else:
             self.pool_to_bytes_if_exist(MapListItemType.TYPE_DEBUG_INFO_ITEM, data_buf, data_pr)
             self.log.debug(r'write debug info')
@@ -1940,10 +1943,10 @@ class DexFile:
         self.log.debug(r'write class def')
 
         self.update_map_list()
-        self.map_list.to_bytes(data_buf, data_pr)
+        self.__map_list.to_bytes(data_buf, data_pr)
         self.log.debug(r'write map list')
         dex_buf = index_buf + data_buf
-        assert len(index_buf) == self.header.data_off
+        assert len(index_buf) == self.__header.data_off
 
         self.update_header(dex_buf)
         self.log.debug(r'update header')
@@ -1951,91 +1954,91 @@ class DexFile:
         self.log.debug(r'update signature')
         self.update_checksum(dex_buf)
         self.log.debug(r'update checksum')
-        assert len(dex_buf) == self.header.file_size
+        assert len(dex_buf) == self.__header.file_size
         return dex_buf
 
     def update_signature(self, dex_buf: bytearray):
-        self.header.signature = hashlib.sha1(dex_buf[0x20:]).digest()
-        dex_buf[0x0c:0x20] = self.header.signature
+        self.__header.signature = hashlib.sha1(dex_buf[0x20:]).digest()
+        dex_buf[0x0c:0x20] = self.__header.signature
 
     def update_checksum(self, dex_buf: bytearray):
-        self.header.checksum = zlib.adler32(dex_buf[0x0c:])
-        dex_buf[0x08:0x0c] = pack('<I', self.header.checksum)
+        self.__header.checksum = zlib.adler32(dex_buf[0x0c:])
+        dex_buf[0x08:0x0c] = pack('<I', self.__header.checksum)
 
     def update_header(self, dex_buf: bytearray):
-        self.header.file_size = len(dex_buf)
-        self.header.header_size = len(self.header)
-        self.header.map_off = self.map_list.offset
+        self.__header.file_size = len(dex_buf)
+        self.__header.header_size = len(self.__header)
+        self.__header.map_off = self.__map_list.offset
 
         # string id
-        map_item = self.map_list.map[MapListItemType.TYPE_STRING_ID_ITEM]
-        self.header.string_ids_off = map_item.data_offset
-        self.header.string_ids_size = map_item.size
+        map_item = self.__map_list.map[MapListItemType.TYPE_STRING_ID_ITEM]
+        self.__header.string_ids_off = map_item.data_offset
+        self.__header.string_ids_size = map_item.size
 
         # type id
-        map_item = self.map_list.map[MapListItemType.TYPE_TYPE_ID_ITEM]
-        self.header.type_ids_off = map_item.data_offset
-        self.header.type_ids_size = map_item.size
+        map_item = self.__map_list.map[MapListItemType.TYPE_TYPE_ID_ITEM]
+        self.__header.type_ids_off = map_item.data_offset
+        self.__header.type_ids_size = map_item.size
 
         # proto id
-        map_item = self.map_list.map[MapListItemType.TYPE_PROTO_ID_ITEM]
-        self.header.proto_ids_off = map_item.data_offset
-        self.header.proto_ids_size = map_item.size
+        map_item = self.__map_list.map[MapListItemType.TYPE_PROTO_ID_ITEM]
+        self.__header.proto_ids_off = map_item.data_offset
+        self.__header.proto_ids_size = map_item.size
 
         # field id
-        map_item = self.map_list.map[MapListItemType.TYPE_FIELD_ID_ITEM]
-        self.header.field_ids_off = map_item.data_offset
-        self.header.field_ids_size = map_item.size
+        map_item = self.__map_list.map[MapListItemType.TYPE_FIELD_ID_ITEM]
+        self.__header.field_ids_off = map_item.data_offset
+        self.__header.field_ids_size = map_item.size
 
         # method id
-        map_item = self.map_list.map[MapListItemType.TYPE_METHOD_ID_ITEM]
-        self.header.method_ids_off = map_item.data_offset
-        self.header.method_ids_size = map_item.size
+        map_item = self.__map_list.map[MapListItemType.TYPE_METHOD_ID_ITEM]
+        self.__header.method_ids_off = map_item.data_offset
+        self.__header.method_ids_size = map_item.size
 
         # class def
-        map_item = self.map_list.map[MapListItemType.TYPE_CLASS_DEF_ITEM]
-        self.header.class_defs_off = map_item.data_offset
-        self.header.class_defs_size = map_item.size
+        map_item = self.__map_list.map[MapListItemType.TYPE_CLASS_DEF_ITEM]
+        self.__header.class_defs_off = map_item.data_offset
+        self.__header.class_defs_size = map_item.size
 
         # header's data_off has update
-        self.header.data_size = self.header.file_size - self.header.data_off
+        self.__header.data_size = self.__header.file_size - self.__header.data_off
 
         dex_buf[0x20:0x70] = pack('<20I',
-                                  self.header.file_size,
-                                  self.header.header_size,
-                                  self.header.endian_tag,
-                                  self.header.link_size,
-                                  self.header.link_off,
-                                  self.header.map_off,
-                                  self.header.string_ids_size,
-                                  self.header.string_ids_off,
-                                  self.header.type_ids_size,
-                                  self.header.type_ids_off,
-                                  self.header.proto_ids_size,
-                                  self.header.proto_ids_off,
-                                  self.header.field_ids_size,
-                                  self.header.field_ids_off,
-                                  self.header.method_ids_size,
-                                  self.header.method_ids_off,
-                                  self.header.class_defs_size,
-                                  self.header.class_defs_off,
-                                  self.header.data_size,
-                                  self.header.data_off)
+                                  self.__header.file_size,
+                                  self.__header.header_size,
+                                  self.__header.endian_tag,
+                                  self.__header.link_size,
+                                  self.__header.link_off,
+                                  self.__header.map_off,
+                                  self.__header.string_ids_size,
+                                  self.__header.string_ids_off,
+                                  self.__header.type_ids_size,
+                                  self.__header.type_ids_off,
+                                  self.__header.proto_ids_size,
+                                  self.__header.proto_ids_off,
+                                  self.__header.field_ids_size,
+                                  self.__header.field_ids_off,
+                                  self.__header.method_ids_size,
+                                  self.__header.method_ids_off,
+                                  self.__header.class_defs_size,
+                                  self.__header.class_defs_off,
+                                  self.__header.data_size,
+                                  self.__header.data_off)
 
     def update_map_list(self):
-        self.map_list.size = len(self.map_list.map)
+        self.__map_list.size = len(self.__map_list.map)
         # header
-        item = self.map_list.map[MapListItemType.TYPE_HEADER_ITEM]
+        item = self.__map_list.map[MapListItemType.TYPE_HEADER_ITEM]
         item.offset = 0
         item.size = 1
 
         # map list
-        item = self.map_list.map[MapListItemType.TYPE_MAP_LIST]
-        item.offset = self.map_list.offset
+        item = self.__map_list.map[MapListItemType.TYPE_MAP_LIST]
+        item.offset = self.__map_list.offset
         item.size = 1
 
         # other
-        for item_type, map_item in self.map_list.map.items():
+        for item_type, map_item in self.__map_list.map.items():
             if item_type in (MapListItemType.TYPE_HEADER_ITEM,
                              MapListItemType.TYPE_MAP_LIST):
                 continue
@@ -2045,23 +2048,23 @@ class DexFile:
 
     def __compute_data_off(self):
         return 0x70 * 1 + \
-               0x04 * len(self.map_list.map[MapListItemType.TYPE_STRING_ID_ITEM].data) + \
-               0x04 * len(self.map_list.map[MapListItemType.TYPE_TYPE_ID_ITEM].data) + \
-               0x0c * len(self.map_list.map[MapListItemType.TYPE_PROTO_ID_ITEM].data) + \
-               0x08 * len(self.map_list.map[MapListItemType.TYPE_FIELD_ID_ITEM].data) + \
-               0x08 * len(self.map_list.map[MapListItemType.TYPE_METHOD_ID_ITEM].data) + \
-               0x20 * len(self.map_list.map[MapListItemType.TYPE_CLASS_DEF_ITEM].data)
+               0x04 * len(self.__map_list.map[MapListItemType.TYPE_STRING_ID_ITEM].data) + \
+               0x04 * len(self.__map_list.map[MapListItemType.TYPE_TYPE_ID_ITEM].data) + \
+               0x0c * len(self.__map_list.map[MapListItemType.TYPE_PROTO_ID_ITEM].data) + \
+               0x08 * len(self.__map_list.map[MapListItemType.TYPE_FIELD_ID_ITEM].data) + \
+               0x08 * len(self.__map_list.map[MapListItemType.TYPE_METHOD_ID_ITEM].data) + \
+               0x20 * len(self.__map_list.map[MapListItemType.TYPE_CLASS_DEF_ITEM].data)
 
     @Debugger.print_all_fields
     def __repr__(self):
         pass
 
     def get_string_by_idx(self, idx: int) -> str:
-        string_id_pool = self.map_list.map[MapListItemType.TYPE_STRING_ID_ITEM].data
+        string_id_pool = self.__map_list.map[MapListItemType.TYPE_STRING_ID_ITEM].data
         return str(string_id_pool[idx].data.data, encoding='ASCII')
 
     def get_type_name_by_idx(self, idx: int) -> str:
-        type_id_pool = self.map_list.map[MapListItemType.TYPE_TYPE_ID_ITEM].data
+        type_id_pool = self.__map_list.map[MapListItemType.TYPE_TYPE_ID_ITEM].data
         return self.get_string_by_idx(type_id_pool[idx].descriptor_id)
 
     @staticmethod
@@ -2073,9 +2076,9 @@ class DexFile:
         return clazz_name[1:-1].replace('/', '.')
 
     def get_method_sign(self, method_id: int) -> str:
-        method_pool = self.map_list.map[MapListItemType.TYPE_METHOD_ID_ITEM].data
+        method_pool = self.__map_list.map[MapListItemType.TYPE_METHOD_ID_ITEM].data
         method: MethodIdItem = method_pool.get_item(method_id)
-        proto_id_pool = self.map_list.map[MapListItemType.TYPE_PROTO_ID_ITEM].data
+        proto_id_pool = self.__map_list.map[MapListItemType.TYPE_PROTO_ID_ITEM].data
         proto: ProtoIdItem = proto_id_pool.get_item(method.proto_id)
         sign = r'('
         if proto.parameters_off:
@@ -2085,9 +2088,9 @@ class DexFile:
         return sign
 
     def get_method_param_sign(self, method_id: int) -> str:
-        method_pool = self.map_list.map[MapListItemType.TYPE_METHOD_ID_ITEM].data
+        method_pool = self.__map_list.map[MapListItemType.TYPE_METHOD_ID_ITEM].data
         method: MethodIdItem = method_pool.get_item(method_id)
-        proto_id_pool = self.map_list.map[MapListItemType.TYPE_PROTO_ID_ITEM].data
+        proto_id_pool = self.__map_list.map[MapListItemType.TYPE_PROTO_ID_ITEM].data
         proto: ProtoIdItem = proto_id_pool.get_item(method.proto_id)
         sign = r''
         if proto.parameters_off:
@@ -2096,24 +2099,24 @@ class DexFile:
         return sign
 
     def get_method_name(self, method_id: int) -> str:
-        method_pool = self.map_list.map[MapListItemType.TYPE_METHOD_ID_ITEM].data
+        method_pool = self.__map_list.map[MapListItemType.TYPE_METHOD_ID_ITEM].data
         method: MethodIdItem = method_pool.get_item(method_id)
         return self.get_string_by_idx(method.name_id)
 
     def get_method_return_type(self, method_id: int) -> str:
-        method_pool = self.map_list.map[MapListItemType.TYPE_METHOD_ID_ITEM].data
+        method_pool = self.__map_list.map[MapListItemType.TYPE_METHOD_ID_ITEM].data
         method: MethodIdItem = method_pool.get_item(method_id)
-        proto_id_pool = self.map_list.map[MapListItemType.TYPE_PROTO_ID_ITEM].data
+        proto_id_pool = self.__map_list.map[MapListItemType.TYPE_PROTO_ID_ITEM].data
         proto: ProtoIdItem = proto_id_pool.get_item(method.proto_id)
         return self.get_type_name_by_idx(proto.return_type_idx)
 
     def get_class_name(self, class_id: int) -> str:
-        class_def_pool = self.map_list.map[MapListItemType.TYPE_CLASS_DEF_ITEM].data
+        class_def_pool = self.__map_list.map[MapListItemType.TYPE_CLASS_DEF_ITEM].data
         class_def: ClassDefItem = class_def_pool.get_item(class_id)
         return DexFile.wrap_to_class_name(self.get_type_name_by_idx(class_def.class_id))
 
     def get_class_name_by_method_id(self, method_id: int) -> str:
-        method_pool = self.map_list.map[MapListItemType.TYPE_METHOD_ID_ITEM].data
+        method_pool = self.__map_list.map[MapListItemType.TYPE_METHOD_ID_ITEM].data
         method: MethodIdItem = method_pool.get_item(method_id)
         return DexFile.wrap_to_class_name(self.get_type_name_by_idx(method.class_id))
 
@@ -2121,9 +2124,9 @@ class DexFile:
         return self.get_method_short(method_id)[1:]
 
     def get_method_short(self, method_id: int) -> str:
-        method_pool = self.map_list.map[MapListItemType.TYPE_METHOD_ID_ITEM].data
+        method_pool = self.__map_list.map[MapListItemType.TYPE_METHOD_ID_ITEM].data
         method: MethodIdItem = method_pool.get_item(method_id)
-        proto_id_pool = self.map_list.map[MapListItemType.TYPE_PROTO_ID_ITEM].data
+        proto_id_pool = self.__map_list.map[MapListItemType.TYPE_PROTO_ID_ITEM].data
         proto: ProtoIdItem = proto_id_pool.get_item(method.proto_id)
         return self.get_string_by_idx(proto.shorty_id)
 

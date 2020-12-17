@@ -17,7 +17,7 @@ class StandardInterpret : public Interpret {
 public:
     StandardInterpret();
 
-    void run(VmMethodContext *vmc);
+    virtual void run(VmMethodContext *vmc);
 
     static void filledNewArray(VmMethodContext *vmc, bool range);
 
